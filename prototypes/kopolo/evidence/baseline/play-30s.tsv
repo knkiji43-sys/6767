@@ -1,0 +1,46 @@
+browser	/tmp/hoplite/workspace/tools/chrome-as-root
+time	2026-11-10 13:44:02
+render	cheap
+hookless	the game has window.game; its own loop is stepped
+ua	HeadlessChrome/157.0.0.0
+scene	0	hookless
+state	0	hookless	{}
+saved	60	localstorage	kopolo-save-v1
+state	1924	hookless	{}
+pressure	none	the game set no number state.margin in play
+steptime	1924	7.622	462.800
+frametime	none	no frame was drawn in play
+done	1924	hookless	stop	32.1	21478
+measured	1280x720
+text	hookless	canvas	653,283,680,297	27.0	3.52	inside	−6
+text	hookless	canvas	130,29,182,39	15.8	19.48	inside	70 / 100
+text	hookless	canvas	146,51,179,58	13.2	16.55	inside	рывок
+text	hookless	canvas	47,684,55,692	17.1	19.48	inside	0
+text	hookless	canvas	117,684,126,692	17.1	19.48	inside	0
+text	hookless	canvas	187,684,196,692	17.1	19.48	inside	0
+text	hookless	canvas	257,684,266,692	17.1	19.48	inside	0
+text	hookless	canvas	1012,649,1018,657	15.8	15.67	inside	F
+text	hookless	canvas	1029,651,1060,657	15.8	13.37	inside	сеять
+text	hookless	canvas	1095,650,1103,658	15.8	19.48	inside	3
+text	hookless	canvas	1146,650,1154,658	15.8	3.82	inside	0
+text	hookless	canvas	1197,650,1204,658	15.8	3.81	inside	0
+text	hookless	canvas	1242,649,1251,659	15.8	15.67	inside	Q
+text	hookless	canvas	1011,682,1019,690	15.8	15.67	inside	Z
+text	hookless	canvas	1053,682,1060,690	15.8	19.48	inside	2
+text	hookless	canvas	1095,682,1104,690	15.8	3.49	inside	X
+text	hookless	canvas	1137,682,1145,690	15.8	3.82	inside	0
+text	hookless	canvas	1180,682,1187,690	15.8	3.49	inside	C
+text	hookless	canvas	1221,682,1229,690	15.8	3.82	inside	0
+text	hookless	canvas	512,665,518,672	13.2	19.48	inside	1
+text	hookless	canvas	558,670,564,677	13.2	4.60	inside	2
+text	hookless	canvas	604,670,611,677	13.2	4.60	inside	3
+text	hookless	canvas	651,670,657,677	13.2	4.60	inside	4
+text	hookless	canvas	698,670,704,677	13.2	4.60	inside	5
+text	hookless	canvas	744,670,750,677	13.2	4.60	inside	6
+text	hookless	canvas	613,643,667,651	15.8	15.45	inside	Осколок
+text	hookless	canvas	1180,161,1210,172	15.8	19.48	inside	Луга
+text	hookless	canvas	1158,176,1234,185	13.2	16.26	inside	День 1 · день
+text	hookless	canvas	424,611,857,622	15.8	17.39	inside	F — посадить семя перед собой · E — собрать созревший урожай
+screen	1924	hookless	2d2fa0df	drawn
+uncaught	0
+shot	/tmp/hoplite/workspace/prototypes/kopolo/evidence/baseline/play-30s.png	1025424

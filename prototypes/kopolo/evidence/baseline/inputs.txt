@@ -1,0 +1,2 @@
+start	click:text=Новая_игра
+play	KeyD:1.5 KeyS:1 click:800,300 KeyA:1 KeyW:1 Space click:400,450 KeyD:1

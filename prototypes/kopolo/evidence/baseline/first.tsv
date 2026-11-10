@@ -1,0 +1,50 @@
+browser	/tmp/hoplite/workspace/tools/chrome-as-root
+time	2026-11-10 13:43:47
+render	cheap
+hookless	the game has window.game; its own loop is stepped
+ua	HeadlessChrome/157.0.0.0
+scene	0	hookless
+state	0	hookless	{}
+state	60	hookless	{}
+pressure	none	the game set no number state.margin in play
+steptime	60	2.993	159.800
+frametime	none	no frame was drawn in play
+done	60	hookless	stop	1.0	740
+measured	1280x720
+text	hookless	html	384,134,467,259	154.5	1.00	inside	K
+text	hookless	html	467,134,563,259	154.5	1.00	inside	O
+text	hookless	html	563,134,647,259	154.5	1.00	inside	P
+text	hookless	html	647,134,743,259	154.5	1.00	inside	O
+text	hookless	html	743,134,812,259	154.5	1.00	inside	L
+text	hookless	html	812,134,908,259	154.5	1.00	inside	O
+text	hookless	html	461,257,819,275	22.5	13.68	inside	Осколки витражного мира
+text	hookless	html	416,291,864,377	22.5	14.24	inside	Мир-витраж раскололся, и в его осколках поселились твари. Ис
+text	hookless	html	577,411,703,430	22.5	1.00	inside	Новая игра
+text	hookless	html	392,469,404,482	15.0	15.67	inside	W
+text	hookless	html	423,469,432,482	15.0	15.67	inside	A
+text	hookless	html	451,469,459,482	15.0	15.67	inside	S
+text	hookless	html	478,469,487,482	15.0	15.67	inside	D
+text	hookless	html	498,467,572,482	18.0	9.61	inside	движение
+text	hookless	html	657,469,686,482	15.0	15.67	inside	ЛКМ
+text	hookless	html	697,467,753,482	18.0	9.61	inside	огонь ·
+text	hookless	html	761,469,768,482	15.0	15.67	inside	1
+text	hookless	html	794,469,801,482	15.0	15.67	inside	6
+text	hookless	html	392,500,440,513	15.0	15.67	inside	Пробел
+text	hookless	html	451,498,609,513	18.0	9.61	inside	рывок сквозь снаряды
+text	hookless	html	657,500,665,513	15.0	15.67	inside	F
+text	hookless	html	676,498,730,513	18.0	9.61	inside	сеять ·
+text	hookless	html	738,500,748,513	15.0	15.67	inside	Q
+text	hookless	html	392,530,400,543	15.0	15.67	inside	E
+text	hookless	html	411,528,527,543	18.0	9.61	inside	урожай / алтарь
+text	hookless	html	657,530,665,543	15.0	15.67	inside	Z
+text	hookless	html	684,530,692,543	15.0	15.67	inside	X
+text	hookless	html	711,530,720,543	15.0	15.67	inside	C
+text	hookless	html	731,528,838,543	18.0	9.61	inside	съесть урожай
+text	hookless	html	392,560,413,573	15.0	15.67	inside	Tab
+text	hookless	html	424,558,520,573	18.0	9.61	inside	мастерская ·
+text	hookless	html	528,560,539,573	15.0	15.67	inside	M
+text	hookless	html	657,560,665,573	15.0	15.67	inside	T
+text	hookless	html	676,558,839,573	18.0	9.61	inside	удерживать — к Маяку
+screen	60	hookless	c130e818	drawn
+uncaught	0
+shot	/tmp/hoplite/workspace/prototypes/kopolo/evidence/baseline/first.png	862228
