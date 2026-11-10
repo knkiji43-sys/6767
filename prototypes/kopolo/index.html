@@ -1,0 +1,4288 @@
+<!doctype html>
+<html lang="ru">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>KOPOLO — Осколки витражного мира</title>
+  <meta name="description" content="2D-шутер с открытым витражным миром: фермерство, мобы и боссы.">
+  <link rel="icon" href="data:image/svg+xml,%3Csvg%20xmlns%3D%22http%3A%2F%2Fwww.w3.org%2F2000%2Fsvg%22%20viewBox%3D%220%200%2032%2032%22%3E%0A%20%20%3Cg%20stroke%3D%22%230d0b18%22%20stroke-width%3D%222%22%20stroke-linejoin%3D%22round%22%3E%0A%20%20%20%20%3Cpath%20d%3D%22M16%202%2028%2014%2016%2014Z%22%20fill%3D%22%236ff0ff%22%2F%3E%0A%20%20%20%20%3Cpath%20d%3D%22M16%202%204%2014%2016%2014Z%22%20fill%3D%22%23d6fbff%22%2F%3E%0A%20%20%20%20%3Cpath%20d%3D%22M4%2014%2016%2030%2016%2014Z%22%20fill%3D%22%23ff6ad5%22%2F%3E%0A%20%20%20%20%3Cpath%20d%3D%22M28%2014%2016%2030%2016%2014Z%22%20fill%3D%22%23ffd27a%22%2F%3E%0A%20%20%3C%2Fg%3E%0A%3C%2Fsvg%3E" type="image/svg+xml">
+  <style>
+:root {
+  --lead: #0d0b18;
+  --ink: #f4f0ff;
+  --muted: #aeb6cc;
+  --gold: #ffd27a;
+  --cyan: #6ff0ff;
+  --pink: #ff6ad5;
+  --green: #b6ff8a;
+  --blue: #8fb4ff;
+  --orange: #ff9a5a;
+  --font: "Trebuchet MS", "Segoe UI", system-ui, sans-serif;
+}
+
+* { box-sizing: border-box; }
+
+html, body {
+  margin: 0;
+  height: 100%;
+  overflow: hidden;
+  background: var(--lead);
+  color: var(--ink);
+  font-family: var(--font);
+}
+
+#game {
+  position: fixed;
+  inset: 0;
+  width: 100vw;
+  height: 100vh;
+  display: block;
+}
+
+/* the canvas draws its own crosshair while playing */
+body.playing #game { cursor: none; }
+
+.overlay {
+  position: fixed;
+  inset: 0;
+  display: flex;
+  padding: 20px;
+  overflow: auto;
+  background: radial-gradient(ellipse at center, rgba(13, 11, 24, 0.3), rgba(13, 11, 24, 0.84));
+}
+
+.overlay[hidden] { display: none; }
+
+/* Panels are panes of dark glass with cut corners inside a rainbow lead frame. */
+.panel {
+  --cut: 22px;
+  position: relative;
+  isolation: isolate;
+  width: 100%;
+  max-width: 580px;
+  margin: auto;
+  padding: 30px 34px 28px;
+  text-align: center;
+  background: var(--lead);
+  clip-path: polygon(var(--cut) 0, calc(100% - var(--cut)) 0, 100% var(--cut), 100% calc(100% - var(--cut)), calc(100% - var(--cut)) 100%, var(--cut) 100%, 0 calc(100% - var(--cut)), 0 var(--cut));
+}
+
+.panel::before,
+.panel::after {
+  content: "";
+  position: absolute;
+  clip-path: inherit;
+}
+
+.panel::after {
+  inset: 2px;
+  z-index: -2;
+  background: conic-gradient(from 20deg, var(--cyan), var(--blue), var(--pink), var(--orange), var(--gold), var(--green), var(--cyan));
+}
+
+.panel::before {
+  inset: 6px;
+  z-index: -1;
+  background: linear-gradient(160deg, #1f1a3c, #120f26);
+}
+
+.panel.wide {
+  max-width: 1000px;
+  padding: 24px 30px 22px;
+  text-align: left;
+}
+
+h2 {
+  margin: 0 0 10px;
+  font-size: 30px;
+  letter-spacing: 0.04em;
+  color: var(--gold);
+}
+
+h2.bad { color: #ff6a7a; }
+h2.good { color: var(--green); }
+
+h3 {
+  margin: 14px 0 8px;
+  font-size: 15px;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+  color: var(--cyan);
+}
+
+h3 small {
+  color: var(--muted);
+  font-weight: 400;
+  letter-spacing: 0;
+  text-transform: none;
+}
+
+/* Each letter of the logo is a two-tone glass facet. */
+.logo {
+  margin: 0;
+  font-size: clamp(54px, 13vw, 108px);
+  font-weight: 900;
+  line-height: 1;
+  letter-spacing: 0.04em;
+  filter: drop-shadow(0 3px 0 var(--lead)) drop-shadow(0 -2px 0 var(--lead)) drop-shadow(2px 0 0 var(--lead)) drop-shadow(-2px 0 0 var(--lead));
+}
+
+.logo span {
+  background: linear-gradient(118deg, var(--a) 0 47%, var(--b) 47% 100%);
+  -webkit-background-clip: text;
+  background-clip: text;
+  color: transparent;
+}
+
+.logo span:nth-child(1) { --a: #d6fbff; --b: #35bfe0; }
+.logo span:nth-child(2) { --a: #fff0b0; --b: #e0a03c; }
+.logo span:nth-child(3) { --a: #ffb3ea; --b: #d94ab5; }
+.logo span:nth-child(4) { --a: #dcffc4; --b: #6dbb48; }
+.logo span:nth-child(5) { --a: #c9dcff; --b: #4f7be0; }
+.logo span:nth-child(6) { --a: #ffd0b0; --b: #e0602a; }
+
+.tagline {
+  margin: 6px 0 14px;
+  font-size: 15px;
+  letter-spacing: 0.34em;
+  text-transform: uppercase;
+  color: var(--gold);
+}
+
+.lore {
+  margin: 0 auto 20px;
+  max-width: 460px;
+  font-size: 15px;
+  line-height: 1.5;
+  color: #d6dcf0;
+}
+
+.buttons {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 12px;
+  justify-content: center;
+  margin-bottom: 22px;
+}
+
+.btn {
+  padding: 14px 28px;
+  border: 0;
+  font: 800 16px/1 var(--font);
+  letter-spacing: 0.06em;
+  text-transform: uppercase;
+  color: var(--lead);
+  cursor: pointer;
+  background: linear-gradient(115deg, #fff0b0 0 22%, var(--gold) 22% 70%, #e0a03c 70%);
+  clip-path: polygon(12px 0, 100% 0, calc(100% - 12px) 100%, 0 100%);
+  transition: transform 0.08s, filter 0.12s;
+}
+
+.btn.primary { background: linear-gradient(115deg, #eaffff 0 22%, var(--cyan) 22% 70%, #35bfe0 70%); }
+
+.btn:hover,
+.btn:focus-visible {
+  outline: none;
+  filter: brightness(1.14);
+  transform: translateY(-1px);
+}
+
+.btn:focus-visible { text-decoration: underline; text-underline-offset: 3px; }
+
+.btn:disabled {
+  background: #45415c;
+  color: #8d88a3;
+  cursor: default;
+  filter: none;
+  transform: none;
+}
+
+.btn.small {
+  flex: none;
+  padding: 9px 18px;
+  font-size: 13px;
+}
+
+.keys {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 8px 18px;
+  margin: 0;
+  padding: 0;
+  list-style: none;
+  text-align: left;
+  font-size: 13px;
+  color: var(--muted);
+}
+
+kbd {
+  display: inline-block;
+  min-width: 22px;
+  margin-right: 3px;
+  padding: 2px 6px;
+  border: 2px solid var(--lead);
+  background: #f1e6c8;
+  color: var(--lead);
+  font: 800 11px/1.3 var(--font);
+  text-align: center;
+}
+
+/* workshop */
+.bar {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 12px 22px;
+}
+
+.bar h2 { margin: 0; }
+
+.wallet {
+  display: flex;
+  flex: 1;
+  flex-wrap: wrap;
+  gap: 6px 18px;
+  font-size: 16px;
+  font-weight: 700;
+}
+
+.cols {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 0 26px;
+}
+
+.list,
+.cores {
+  margin: 0;
+  padding: 0;
+  list-style: none;
+}
+
+.row {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  margin-bottom: 5px;
+  padding: 7px 14px;
+  background: rgba(255, 255, 255, 0.055);
+  clip-path: polygon(8px 0, 100% 0, calc(100% - 8px) 100%, 0 100%);
+}
+
+.info {
+  flex: 1;
+  min-width: 0;
+}
+
+.info b { font-size: 15px; }
+
+.info small {
+  display: block;
+  margin-top: 2px;
+  font-size: 12.5px;
+  color: var(--muted);
+}
+
+.pips {
+  margin-left: 8px;
+  font-size: 10px;
+  letter-spacing: 1px;
+  color: var(--gold);
+}
+
+.ok { color: var(--green); }
+.lack { color: #ff8a8a; }
+
+.owned {
+  flex: none;
+  font-size: 12.5px;
+  color: var(--green);
+}
+
+.cores li {
+  margin-bottom: 5px;
+  font-size: 13px;
+  color: var(--muted);
+}
+
+.cores li.ok { color: var(--green); }
+
+.gem {
+  display: inline-block;
+  width: 11px;
+  height: 11px;
+  margin: 0 7px 0 3px;
+  border: 2px solid var(--lead);
+  vertical-align: -1px;
+  transform: rotate(45deg);
+}
+
+.gem.essence { background: #c79bff; }
+.gem.wood { background: #d19a5b; }
+.gem.ore { background: #c3cae0; }
+.gem.crystal { background: #6ff0ff; }
+
+.btn .gem { margin: 0 0 0 8px; }
+
+@media (max-width: 780px) {
+  .cols { grid-template-columns: 1fr; }
+  .keys { grid-template-columns: 1fr; }
+  .panel { padding: 24px 20px; }
+}
+</style>
+</head>
+<body>
+  <canvas id="game"></canvas>
+
+  <section id="title" class="overlay" aria-labelledby="title-name">
+    <div class="panel">
+      <h1 id="title-name" class="logo" aria-label="KOPOLO"><span>K</span><span>O</span><span>P</span><span>O</span><span>L</span><span>O</span></h1>
+      <p class="tagline">Осколки витражного мира</p>
+      <p class="lore">Мир-витраж раскололся, и в его осколках поселились твари. Исследуй пять земель, добывай ресурсы, выращивай урожай у Маяка, создавай оружие и одолей четырёх Хранителей.</p>
+      <div class="buttons">
+        <button id="btn-continue" class="btn primary" hidden>Продолжить</button>
+        <button id="btn-new" class="btn">Новая игра</button>
+      </div>
+      <ul class="keys">
+        <li><kbd>W</kbd><kbd>A</kbd><kbd>S</kbd><kbd>D</kbd> движение</li>
+        <li><kbd>ЛКМ</kbd> огонь · <kbd>1</kbd>–<kbd>6</kbd> оружие</li>
+        <li><kbd>Пробел</kbd> рывок сквозь снаряды</li>
+        <li><kbd>F</kbd> сеять · <kbd>Q</kbd> семена</li>
+        <li><kbd>E</kbd> урожай / алтарь</li>
+        <li><kbd>Z</kbd><kbd>X</kbd><kbd>C</kbd> съесть урожай</li>
+        <li><kbd>Tab</kbd> мастерская · <kbd>M</kbd> карта</li>
+        <li><kbd>T</kbd> удерживать — к Маяку</li>
+      </ul>
+    </div>
+  </section>
+
+  <section id="craft" class="overlay" hidden aria-labelledby="craft-name">
+    <div class="panel wide">
+      <header class="bar">
+        <h2 id="craft-name">Мастерская</h2>
+        <div id="wallet" class="wallet"></div>
+        <button id="craft-close" class="btn small">Закрыть · Tab</button>
+      </header>
+      <div class="cols">
+        <div>
+          <h3>Улучшения <small>за эссенцию</small></h3>
+          <ul id="upg-list" class="list"></ul>
+          <h3>Хранители <small>алтари отмечены на карте — M</small></h3>
+          <ul id="core-list" class="cores"></ul>
+        </div>
+        <div>
+          <h3>Оружие <small>из ресурсов и ядер</small></h3>
+          <ul id="weapon-list" class="list"></ul>
+        </div>
+      </div>
+    </div>
+  </section>
+
+  <section id="pause" class="overlay" hidden aria-labelledby="pause-name">
+    <div class="panel">
+      <h2 id="pause-name">Пауза</h2>
+      <p class="lore">Прогресс сохранён. Маяк лечит и отгоняет тварей — возвращайся к нему, чтобы сажать и собирать урожай.</p>
+      <div class="buttons">
+        <button id="btn-resume" class="btn primary">Продолжить</button>
+        <button id="btn-sound" class="btn">Звук: вкл</button>
+        <button id="btn-menu" class="btn">В меню</button>
+      </div>
+      <ul class="keys">
+        <li><kbd>W</kbd><kbd>A</kbd><kbd>S</kbd><kbd>D</kbd> движение</li>
+        <li><kbd>ЛКМ</kbd> огонь · <kbd>1</kbd>–<kbd>6</kbd> оружие</li>
+        <li><kbd>Пробел</kbd> рывок сквозь снаряды</li>
+        <li><kbd>F</kbd> сеять · <kbd>Q</kbd> семена</li>
+        <li><kbd>E</kbd> урожай / алтарь</li>
+        <li><kbd>Z</kbd><kbd>X</kbd><kbd>C</kbd> съесть урожай</li>
+        <li><kbd>Tab</kbd> мастерская · <kbd>M</kbd> карта</li>
+        <li><kbd>T</kbd> к Маяку · <kbd>N</kbd> звук</li>
+      </ul>
+    </div>
+  </section>
+
+  <section id="dead" class="overlay" hidden aria-labelledby="dead-name">
+    <div class="panel">
+      <h2 id="dead-name" class="bad">Ты разбит на осколки</h2>
+      <p id="dead-info" class="lore"></p>
+      <div class="buttons">
+        <button id="btn-respawn" class="btn primary">Возродиться у Маяка</button>
+      </div>
+    </div>
+  </section>
+
+  <section id="win" class="overlay" hidden aria-labelledby="win-name">
+    <div class="panel">
+      <h2 id="win-name" class="good">Сердце Пепла погасло</h2>
+      <p id="win-info" class="lore"></p>
+      <div class="buttons">
+        <button id="btn-win" class="btn primary">Продолжить странствие</button>
+      </div>
+    </div>
+  </section>
+
+  <script>
+(() => {
+'use strict';
+const __modules = {};
+__modules['config'] = (() => {
+// Tuning tables shared by the simulation and the renderer. No DOM access here.
+
+const TILE = 48;
+const CHUNK_TILES = 12;
+const CHUNK = TILE * CHUNK_TILES;
+
+const DAY_LENGTH = 300; // seconds per day/night cycle
+const HOME_RADIUS = 360; // safe zone around the beacon at the origin
+const ARENA_RADIUS = 440;
+const RECALL_TIME = 2.2;
+
+const BIOME_IDS = ['meadow', 'forest', 'desert', 'tundra', 'volcano'];
+
+const BIOMES = {
+  meadow: { name: 'Луга', map: [79, 174, 82], crop: 'berry' },
+  forest: { name: 'Чаща', map: [31, 107, 85], crop: 'berry' },
+  desert: { name: 'Пески', map: [224, 160, 60], crop: 'pepper' },
+  tundra: { name: 'Стужа', map: [185, 220, 238], crop: 'frost' },
+  volcano: { name: 'Пепелище', map: [96, 28, 38], crop: 'pepper' },
+};
+
+const ITEMS = {
+  essence: { name: 'Эссенция', color: '#c79bff' },
+  wood: { name: 'Древесина', color: '#d19a5b' },
+  ore: { name: 'Руда', color: '#c3cae0' },
+  crystal: { name: 'Кристаллы', color: '#6ff0ff' },
+  seedBerry: { name: 'Семена светоягоды', color: '#8ef5ff' },
+  seedPepper: { name: 'Семена огнеперца', color: '#ff8a4a' },
+  seedFrost: { name: 'Семена морозника', color: '#c9b5ff' },
+  berry: { name: 'Светоягода', color: '#8ef5ff' },
+  pepper: { name: 'Огнеперец', color: '#ff6a3a' },
+  frost: { name: 'Морозник', color: '#c9b5ff' },
+  heart: { name: 'Искра жизни', color: '#ff5d7a' },
+};
+
+// `core` names the guardian whose core is required to craft the weapon.
+const WEAPONS = [
+  { id: 'shard', name: 'Осколок', desc: 'Надёжный одиночный выстрел', rate: 5.5, dmg: 11, speed: 900, spread: 0.035, life: 0.75, r: 5, color: '#8ef5ff' },
+  { id: 'fan', name: 'Веер', desc: 'Шесть осколков веером — для ближнего боя', rate: 1.5, dmg: 9, count: 6, arc: 0.52, speed: 780, life: 0.4, r: 5, color: '#ffd27a', cost: { wood: 25, ore: 10 } },
+  { id: 'needle', name: 'Игла', desc: 'Скорострельный поток игл', rate: 13, dmg: 5.5, speed: 1000, spread: 0.1, life: 0.6, r: 4, color: '#b6ff8a', cost: { ore: 30, crystal: 8 } },
+  { id: 'prism', name: 'Призма', desc: 'Луч, пробивающий всё насквозь', rate: 1.7, dmg: 38, speed: 1500, life: 0.6, r: 6, pierce: true, color: '#f0a6ff', cost: { crystal: 20 }, core: 'forest' },
+  { id: 'comet', name: 'Комета', desc: 'Взрывной заряд по площади', rate: 1.1, dmg: 55, speed: 560, life: 1.0, r: 9, explode: 100, color: '#ff9a5a', cost: { ore: 40, crystal: 20 }, core: 'desert' },
+  { id: 'swarm', name: 'Рой', desc: 'Три самонаводящихся осколка', rate: 2.6, dmg: 12, count: 3, arc: 0.7, speed: 520, life: 1.6, r: 5, homing: 6, color: '#8fb4ff', cost: { wood: 40, crystal: 40 }, core: 'tundra' },
+];
+
+// Essence cost of the next level is base * grow^level.
+const UPGRADES = [
+  { id: 'hp', name: 'Живучесть', desc: '+20 к здоровью', max: 10, base: 20, grow: 1.5 },
+  { id: 'dmg', name: 'Мощь', desc: '+12% урона', max: 10, base: 25, grow: 1.55 },
+  { id: 'rate', name: 'Темп', desc: '+8% скорострельности', max: 8, base: 30, grow: 1.6 },
+  { id: 'speed', name: 'Проворство', desc: '+5% скорости бега', max: 6, base: 25, grow: 1.6 },
+  { id: 'magnet', name: 'Притяжение', desc: '+35% радиуса сбора', max: 5, base: 15, grow: 1.6 },
+  { id: 'dash', name: 'Рывок', desc: '−12% перезарядки рывка', max: 5, base: 30, grow: 1.6 },
+  { id: 'regen', name: 'Регенерация', desc: '+0,5 здоровья в секунду', max: 5, base: 40, grow: 1.7 },
+];
+
+// Crops ripen 40% faster in the biomes they like.
+const CROPS = {
+  berry: { name: 'Светоягода', seed: 'seedBerry', item: 'berry', grow: 50, likes: ['meadow', 'forest'], use: 'лечит 40 здоровья', key: 'Z', color: '#8ef5ff' },
+  pepper: { name: 'Огнеперец', seed: 'seedPepper', item: 'pepper', grow: 70, likes: ['desert', 'volcano'], use: '+40% урона на 30 с', key: 'X', color: '#ff6a3a' },
+  frost: { name: 'Морозник', seed: 'seedFrost', item: 'frost', grow: 70, likes: ['tundra'], use: '−40% получаемого урона и +15% скорости на 30 с', key: 'C', color: '#c9b5ff' },
+};
+
+// r is the collision radius, vr the drawn radius; drops are [item, min, max].
+const NODES = {
+  tree: { hp: 40, r: 17, vr: 31, solid: true, respawn: 80, drops: [['wood', 2, 4]], color: '#4fc46a' },
+  pine: { hp: 50, r: 16, vr: 30, solid: true, respawn: 80, drops: [['wood', 3, 5]], color: '#2c9c7c' },
+  bush: { hp: 14, r: 13, vr: 16, solid: false, respawn: 60, drops: [['seedBerry', 1, 2]], color: '#8fd35a' },
+  rock: { hp: 70, r: 19, vr: 23, solid: true, respawn: 110, drops: [['ore', 2, 4]], color: '#9aa0b8' },
+  crystal: { hp: 55, r: 15, vr: 26, solid: true, respawn: 150, drops: [['crystal', 1, 3]], color: '#6ff0ff', glow: '#6ff0ff' },
+  cactus: { hp: 35, r: 14, vr: 18, solid: true, respawn: 80, drops: [['wood', 1, 3]], color: '#5fbf6a' },
+  bloom: { hp: 14, r: 13, vr: 16, solid: false, respawn: 60, drops: [['seedPepper', 1, 2]], color: '#ff5a6a' },
+  snowpine: { hp: 50, r: 16, vr: 30, solid: true, respawn: 80, drops: [['wood', 3, 5]], color: '#bfe6f2' },
+  ice: { hp: 60, r: 16, vr: 27, solid: true, respawn: 130, drops: [['crystal', 2, 3]], color: '#c8f4ff', glow: '#9fe8ff' },
+  frostbush: { hp: 14, r: 13, vr: 16, solid: false, respawn: 60, drops: [['seedFrost', 1, 2]], color: '#c9b5ff' },
+  obsidian: { hp: 120, r: 20, vr: 25, solid: true, respawn: 120, drops: [['ore', 4, 7]], color: '#7a5aa0' },
+  magma: { hp: 90, r: 16, vr: 27, solid: true, respawn: 140, drops: [['crystal', 3, 5]], color: '#ff9a3a', glow: '#ff7a2a' },
+  deadtree: { hp: 30, r: 13, vr: 26, solid: true, respawn: 90, drops: [['wood', 2, 3]], color: '#c8b8a4' },
+};
+
+// Chance per tile that a node of the given type grows there.
+const BIOME_NODES = {
+  meadow: [['tree', 0.035], ['bush', 0.022], ['rock', 0.012], ['crystal', 0.004]],
+  forest: [['pine', 0.1], ['tree', 0.04], ['bush', 0.022], ['rock', 0.015], ['crystal', 0.007]],
+  desert: [['cactus', 0.03], ['rock', 0.03], ['bloom', 0.014], ['crystal', 0.004]],
+  tundra: [['snowpine', 0.035], ['ice', 0.028], ['frostbush', 0.014], ['rock', 0.012]],
+  volcano: [['obsidian', 0.04], ['magma', 0.022], ['deadtree', 0.022], ['bloom', 0.006]],
+};
+
+const MOBS = {
+  slime: { ai: 'hopper', hp: 26, dmg: 8, speed: 135, r: 15, ess: 2, pack: 2, color: '#ff7aa8' },
+  wasp: { ai: 'swooper', hp: 15, dmg: 6, speed: 215, r: 11, ess: 2, pack: 3, flying: true, color: '#ffd23a' },
+  spore: { ai: 'shooter', hp: 42, dmg: 9, speed: 85, r: 17, ess: 4, range: 330, fireEvery: 2.0, shot: { n: 1, spread: 0, speed: 250, r: 8, color: '#d98cff' }, color: '#c26bff' },
+  wolf: { ai: 'charger', hp: 52, dmg: 13, speed: 165, r: 16, ess: 5, pack: 2, color: '#9a9ae0' },
+  scorp: { ai: 'shooter', hp: 72, dmg: 11, speed: 105, r: 18, ess: 7, range: 350, fireEvery: 2.3, shot: { n: 3, spread: 0.2, speed: 320, r: 6, color: '#c86aff' }, color: '#a84068', drops: [['ore', 0.25]] },
+  beetle: { ai: 'bomber', hp: 44, dmg: 24, speed: 205, r: 14, ess: 6, pack: 2, color: '#2fa8b8' },
+  wisp: { ai: 'orbiter', hp: 62, dmg: 12, speed: 185, r: 14, ess: 8, flying: true, fireEvery: 2.3, color: '#8a7aff', drops: [['crystal', 0.25]] },
+  yeti: { ai: 'tank', hp: 280, dmg: 22, speed: 82, r: 27, ess: 18, kb: 0.3, color: '#6a8abc', drops: [['crystal', 0.5]] },
+  magmite: { ai: 'chaser', hp: 115, dmg: 16, speed: 150, r: 20, ess: 10, split: 'magmiteS', color: '#ff8a2a', drops: [['ore', 0.3]] },
+  magmiteS: { ai: 'chaser', hp: 34, dmg: 10, speed: 205, r: 12, ess: 3, color: '#ffa23a' },
+  sentinel: { ai: 'turret', hp: 200, dmg: 13, speed: 55, r: 22, ess: 16, flying: true, kb: 0.4, color: '#e8e0d8', drops: [['crystal', 0.6]] },
+};
+
+// Weighted spawn tables per biome.
+const BIOME_MOBS = {
+  meadow: [['slime', 3], ['wasp', 2]],
+  forest: [['spore', 2], ['wolf', 2], ['slime', 1]],
+  desert: [['scorp', 2], ['beetle', 2], ['wasp', 1]],
+  tundra: [['wisp', 3], ['yeti', 1], ['wolf', 1]],
+  volcano: [['magmite', 3], ['sentinel', 1], ['beetle', 1]],
+};
+
+// phases lists the health fractions at which a guardian escalates.
+const BOSSES = {
+  forest: { name: 'Корнеглав', title: 'Хранитель Чащи', hp: 1100, r: 46, touch: 16, shot: 11, phases: [0.5], essence: 160, loot: [['wood', 24], ['crystal', 8]], color: '#ff6ad5', color2: '#b8ff5a' },
+  desert: { name: 'Зыбун', title: 'Хранитель Песков', hp: 1900, r: 32, touch: 20, shot: 13, slam: 26, phases: [0.5], essence: 320, loot: [['ore', 30], ['crystal', 12]], color: '#b07aff', color2: '#ffd27a' },
+  tundra: { name: 'Стужень', title: 'Хранитель Стужи', hp: 3000, r: 54, touch: 22, shot: 14, slam: 28, phases: [0.5], essence: 520, loot: [['crystal', 30], ['ore', 20]], color: '#4a7aff', color2: '#eaffff' },
+  volcano: { name: 'Игнис', title: 'Сердце Пепла', hp: 4600, r: 50, touch: 24, shot: 15, slam: 30, laser: 22, phases: [0.66, 0.33], essence: 900, loot: [['crystal', 40], ['ore', 40]], color: '#ff5a2a', color2: '#ffd24a' },
+};
+
+// Lairs sit on rings of growing distance, one per quadrant (see World).
+const LAIR_DEFS = [
+  { id: 'forest', biome: 1, dist: 3600 },
+  { id: 'desert', biome: 2, dist: 6400 },
+  { id: 'tundra', biome: 3, dist: 9200 },
+  { id: 'volcano', biome: 4, dist: 12500 },
+];
+
+return { TILE, CHUNK_TILES, CHUNK, DAY_LENGTH, HOME_RADIUS, ARENA_RADIUS, RECALL_TIME, BIOME_IDS, BIOMES, ITEMS, WEAPONS, UPGRADES, CROPS, NODES, BIOME_NODES, MOBS, BIOME_MOBS, BOSSES, LAIR_DEFS };
+})();
+__modules['util'] = (() => {
+// Math, hashing and noise helpers shared by the simulation and the renderer.
+
+const TAU = Math.PI * 2;
+const clamp = (v, a, b) => (v < a ? a : v > b ? b : v);
+const lerp = (a, b, t) => a + (b - a) * t;
+
+function smooth(a, b, x) {
+  const t = clamp((x - a) / (b - a), 0, 1);
+  return t * t * (3 - 2 * t);
+}
+
+function dist2(ax, ay, bx, by) {
+  const dx = ax - bx, dy = ay - by;
+  return dx * dx + dy * dy;
+}
+
+function hash2(x, y, seed) {
+  let h = (Math.imul(x | 0, 374761393) + Math.imul(y | 0, 668265263) + Math.imul(seed | 0, 1442695041)) | 0;
+  h = Math.imul(h ^ (h >>> 13), 1274126177);
+  h = Math.imul(h ^ (h >>> 16), 2246822519);
+  return (h ^ (h >>> 15)) >>> 0;
+}
+
+const hash01 = (x, y, seed) => hash2(x, y, seed) / 4294967296;
+
+function mulberry32(seed) {
+  let a = seed | 0;
+  return () => {
+    a = (a + 0x6d2b79f5) | 0;
+    let t = Math.imul(a ^ (a >>> 15), 1 | a);
+    t = (t + Math.imul(t ^ (t >>> 7), 61 | t)) ^ t;
+    return ((t ^ (t >>> 14)) >>> 0) / 4294967296;
+  };
+}
+
+function valueNoise(x, y, seed) {
+  const xi = Math.floor(x), yi = Math.floor(y);
+  const xf = x - xi, yf = y - yi;
+  const u = xf * xf * (3 - 2 * xf), v = yf * yf * (3 - 2 * yf);
+  const a = hash01(xi, yi, seed), b = hash01(xi + 1, yi, seed);
+  const c = hash01(xi, yi + 1, seed), d = hash01(xi + 1, yi + 1, seed);
+  return a + (b - a) * u + (c - a) * v + (a - b - c + d) * u * v;
+}
+
+function fbm(x, y, seed, octaves = 3) {
+  let amp = 0.5, sum = 0, norm = 0, f = 1;
+  for (let i = 0; i < octaves; i++) {
+    sum += amp * valueNoise(x * f, y * f, seed + i * 101);
+    norm += amp;
+    amp *= 0.5;
+    f *= 2;
+  }
+  return sum / norm;
+}
+
+// Signed shortest rotation from angle a to angle b.
+function angDiff(a, b) {
+  let d = (b - a) % TAU;
+  if (d > Math.PI) d -= TAU;
+  else if (d < -Math.PI) d += TAU;
+  return d;
+}
+
+// Swept test: does the segment (x0,y0)-(x1,y1) touch the circle?
+function segCircle(x0, y0, x1, y1, cx, cy, r) {
+  const dx = x1 - x0, dy = y1 - y0;
+  const l2 = dx * dx + dy * dy;
+  const t = l2 > 0 ? clamp(((cx - x0) * dx + (cy - y0) * dy) / l2, 0, 1) : 0;
+  const px = x0 + dx * t - cx, py = y0 + dy * t - cy;
+  return px * px + py * py <= r * r;
+}
+
+return { TAU, clamp, lerp, smooth, dist2, hash2, hash01, mulberry32, valueNoise, fbm, angDiff, segCircle };
+})();
+__modules['world'] = (() => {
+// Deterministic, chunked, endless world: biomes, liquid tiles, resource nodes and guardian lairs.
+const { TILE, CHUNK_TILES, CHUNK, BIOME_IDS, NODES, BIOME_NODES, ARENA_RADIUS, LAIR_DEFS } = __modules['config'];
+const { TAU, hash01, hash2, fbm, dist2, segCircle } = __modules['util'];
+
+const CELL = 2000; // size of a biome region
+const HOME_BIOME_R = 1500;
+const LAIR_BIOME_R = 1250;
+const MAX_NODE_R = 30;
+const chunkKey = (cx, cy) => (cx + 32768) * 65536 + (cy + 32768);
+
+// Biome weights of a region by its distance from the beacon: the further out, the harsher.
+const RINGS = [
+  [2600, [[0, 0.65], [1, 0.35]]],
+  [5400, [[1, 0.4], [0, 0.22], [2, 0.28], [3, 0.1]]],
+  [8600, [[2, 0.34], [3, 0.26], [1, 0.2], [0, 0.1], [4, 0.1]]],
+  [Infinity, [[4, 0.34], [3, 0.26], [2, 0.22], [1, 0.18]]],
+];
+
+class World {
+  constructor(seed) {
+    this.seed = seed | 0;
+    this.now = 0; // game time, set by the simulation; nodes are alive once now >= deadUntil
+    this.chunks = new Map();
+    this.deadNodes = new Map(); // node id -> deadUntil, for chunks that were pruned
+    const a0 = hash01(11, 17, this.seed) * TAU;
+    this.lairs = LAIR_DEFS.map((d, i) => {
+      const a = a0 + i * (TAU / 4) + (hash01(i, 23, this.seed) - 0.5) * 0.7;
+      return { id: d.id, biome: d.biome, x: Math.round(Math.cos(a) * d.dist), y: Math.round(Math.sin(a) * d.dist), r: ARENA_RADIUS };
+    });
+  }
+
+  // Biome index straight from the noise fields (warped Voronoi regions).
+  biomeAt(x, y) {
+    const s = this.seed;
+    const wx = x + (fbm(x * 0.0015, y * 0.0015, s + 11) - 0.5) * 760;
+    const wy = y + (fbm(x * 0.0015 + 37.1, y * 0.0015 - 19.7, s + 12) - 0.5) * 760;
+    if (wx * wx + wy * wy < HOME_BIOME_R * HOME_BIOME_R) return 0;
+    for (const l of this.lairs) if (dist2(wx, wy, l.x, l.y) < LAIR_BIOME_R * LAIR_BIOME_R) return l.biome;
+    const gx = Math.floor(wx / CELL), gy = Math.floor(wy / CELL);
+    let best = Infinity, biome = 0;
+    for (let j = -1; j <= 1; j++) {
+      for (let i = -1; i <= 1; i++) {
+        const cx = gx + i, cy = gy + j;
+        const sx = (cx + 0.15 + 0.7 * hash01(cx, cy, s + 21)) * CELL;
+        const sy = (cy + 0.15 + 0.7 * hash01(cx, cy, s + 22)) * CELL;
+        const d = dist2(wx, wy, sx, sy);
+        if (d < best) { best = d; biome = this.siteBiome(cx, cy, sx, sy); }
+      }
+    }
+    return biome;
+  }
+
+  siteBiome(cx, cy, sx, sy) {
+    const d = Math.hypot(sx, sy), u = hash01(cx, cy, this.seed + 23);
+    for (const [limit, table] of RINGS) {
+      if (d >= limit) continue;
+      let acc = 0;
+      for (const [b, p] of table) { acc += p; if (u < acc) return b; }
+      return table[0][0];
+    }
+    return 0;
+  }
+
+  liquidRaw(x, y, biome) {
+    if (x * x + y * y < 620 * 620) return false;
+    for (const l of this.lairs) if (dist2(x, y, l.x, l.y) < (ARENA_RADIUS + 120) ** 2) return false;
+    const limit = biome === 4 ? 0.64 : biome === 2 ? 0.74 : 0.69;
+    return fbm(x * 0.0042, y * 0.0042, this.seed + 31) > limit;
+  }
+
+  // Jittered tile corners: the renderer builds its glass mosaic from them.
+  cornerX(i, j) { return (i + (hash01(i, j, this.seed + 41) - 0.5) * 0.54) * TILE; }
+  cornerY(i, j) { return (j + (hash01(i, j, this.seed + 42) - 0.5) * 0.54) * TILE; }
+
+  getChunk(cx, cy) {
+    const key = chunkKey(cx, cy);
+    let c = this.chunks.get(key);
+    if (!c) { c = this.genChunk(cx, cy, key); this.chunks.set(key, c); }
+    return c;
+  }
+
+  genChunk(cx, cy, key) {
+    const n = CHUNK_TILES;
+    const tiles = new Uint8Array(n * n), liquid = new Uint8Array(n * n);
+    const nodes = [], liquidList = [];
+    for (let j = 0; j < n; j++) {
+      for (let i = 0; i < n; i++) {
+        const tx = cx * n + i, ty = cy * n + j;
+        const x = (tx + 0.5) * TILE, y = (ty + 0.5) * TILE;
+        const b = this.biomeAt(x, y);
+        tiles[j * n + i] = b;
+        if (this.liquidRaw(x, y, b)) { liquid[j * n + i] = 1; liquidList.push(j * n + i); continue; }
+        const node = this.nodeFor(tx, ty, b, x, y);
+        if (node) nodes.push(node);
+      }
+    }
+    return { key, cx, cy, tiles, liquid, liquidList, nodes };
+  }
+
+  nodeFor(tx, ty, biome, x, y) {
+    const s = this.seed, h = hash01(tx, ty, s + 51);
+    let acc = 0, type = null;
+    for (const [t, p] of BIOME_NODES[BIOME_IDS[biome]]) { acc += p; if (h < acc) { type = t; break; } }
+    if (!type) return null;
+    const nx = x + (hash01(tx, ty, s + 52) - 0.5) * 22, ny = y + (hash01(tx, ty, s + 53) - 0.5) * 22;
+    if (nx * nx + ny * ny < 300 * 300) return null; // keep the beacon clearing free for farm plots
+    for (const l of this.lairs) if (dist2(nx, ny, l.x, l.y) < (ARENA_RADIUS + 30) ** 2) return null;
+    const def = NODES[type], sc = 0.85 + hash01(tx, ty, s + 54) * 0.35, id = tx + ',' + ty;
+    return {
+      id, type, def, x: nx, y: ny, r: def.r * sc, sc, rot: hash01(tx, ty, s + 55) * TAU, variant: hash2(tx, ty, s + 56) % 3,
+      hp: def.hp, deadUntil: this.deadNodes.get(id) || 0, hitAt: -9,
+    };
+  }
+
+  tileOf(x, y) {
+    const tx = Math.floor(x / TILE), ty = Math.floor(y / TILE);
+    const cx = Math.floor(tx / CHUNK_TILES), cy = Math.floor(ty / CHUNK_TILES);
+    this._chunk = this.getChunk(cx, cy);
+    return (ty - cy * CHUNK_TILES) * CHUNK_TILES + (tx - cx * CHUNK_TILES);
+  }
+
+  // Tile lookups through the chunk cache (cheaper than biomeAt once a chunk exists).
+  biomeIdx(x, y) { const i = this.tileOf(x, y); return this._chunk.tiles[i]; }
+  liquidAt(x, y) { const i = this.tileOf(x, y); return this._chunk.liquid[i] === 1; }
+
+  // Calls fn for every living node whose circle overlaps the given circle.
+  nodesNear(x, y, r, fn) {
+    const pad = r + MAX_NODE_R, now = this.now;
+    const cx0 = Math.floor((x - pad) / CHUNK), cx1 = Math.floor((x + pad) / CHUNK);
+    const cy0 = Math.floor((y - pad) / CHUNK), cy1 = Math.floor((y + pad) / CHUNK);
+    for (let cy = cy0; cy <= cy1; cy++) {
+      for (let cx = cx0; cx <= cx1; cx++) {
+        const ns = this.getChunk(cx, cy).nodes;
+        for (let i = 0; i < ns.length; i++) {
+          const n = ns[i];
+          if (n.deadUntil > now) continue;
+          const rr = r + n.r, dx = n.x - x, dy = n.y - y;
+          if (dx * dx + dy * dy < rr * rr) fn(n);
+        }
+      }
+    }
+  }
+
+  // First living node crossed by a moving projectile of radius r, or null.
+  nodeHit(x0, y0, x1, y1, r, solidOnly) {
+    const pad = r + MAX_NODE_R, now = this.now;
+    const cx0 = Math.floor((Math.min(x0, x1) - pad) / CHUNK), cx1 = Math.floor((Math.max(x0, x1) + pad) / CHUNK);
+    const cy0 = Math.floor((Math.min(y0, y1) - pad) / CHUNK), cy1 = Math.floor((Math.max(y0, y1) + pad) / CHUNK);
+    for (let cy = cy0; cy <= cy1; cy++) {
+      for (let cx = cx0; cx <= cx1; cx++) {
+        const ns = this.getChunk(cx, cy).nodes;
+        for (let i = 0; i < ns.length; i++) {
+          const n = ns[i];
+          if (n.deadUntil > now || (solidOnly && !n.def.solid)) continue;
+          if (segCircle(x0, y0, x1, y1, n.x, n.y, n.r * 0.85 + r)) return n;
+        }
+      }
+    }
+    return null;
+  }
+
+  // Forget far-away chunks so an endless walk does not grow memory without bound.
+  prune(px, py) {
+    if (this.chunks.size < 420) return;
+    const pcx = Math.floor(px / CHUNK), pcy = Math.floor(py / CHUNK);
+    for (const [key, c] of this.chunks) {
+      if (Math.abs(c.cx - pcx) <= 7 && Math.abs(c.cy - pcy) <= 7) continue;
+      for (const n of c.nodes) if (n.deadUntil > this.now) this.deadNodes.set(n.id, n.deadUntil);
+      this.chunks.delete(key);
+    }
+    for (const [id, t] of this.deadNodes) if (t <= this.now) this.deadNodes.delete(id);
+  }
+}
+
+return { World };
+})();
+__modules['bosses'] = (() => {
+// Guardians: one boss per lair, each with its own attack patterns and escalating phases.
+const { BOSSES, ARENA_RADIUS } = __modules['config'];
+const { TAU, clamp, dist2, angDiff } = __modules['util'];
+
+const LASER_LEN = 760;
+const LASER_W = 12;
+const LEASH = 1350; // the fight resets when the player runs this far from the lair
+const NONE = [];
+const THORN = { r: 7, color: '#ff6ad5', life: 5 };
+const LASH = { r: 6, color: '#b8ff5a', life: 3 };
+const SPIT = { r: 7, color: '#c86aff', life: 3.5 };
+const ICE = { r: 6, color: '#3a6aff', life: 4.5 };
+const ORB = { r: 10, color: '#a04aff', life: 5, homing: 1.5 };
+const EMBER = { r: 7, color: '#ff9a3a', life: 5 };
+
+function spawnBoss(game, lair) {
+  const def = BOSSES[lair.id], lvl = game.bossKills[lair.id] || 0;
+  const hp = Math.round(def.hp * (1 + 0.6 * lvl));
+  const b = {
+    id: lair.id, def, name: def.name, lair, lvl, x: lair.x, y: lair.y, r: def.r, mul: 1, hp, maxHp: hp, dmgMul: 1 + 0.25 * lvl,
+    t: 0, phase: 1, state: 'intro', st: 1.6, seq: 0, c1: 1.2, c2: 6, c3: 3, acc: 0, ang: 0, face: 0, dir: 1, vx: 0, vy: 0,
+    hitT: 0, hidden: false, dead: false, segs: null, parts: null, ca: 0, la: 0, lw: 0, nl: 0,
+  };
+  if (lair.id === 'desert') {
+    b.segs = [];
+    for (let i = 0; i < 11; i++) b.segs.push({ x: b.x, y: b.y + (i + 1) * 6, r: Math.max(13, 27 - i * 1.3), mul: 0.6 });
+  }
+  // Hit circles: the body itself plus, for the wyrm, its tail segments (reduced damage).
+  b.parts = b.segs ? [b, ...b.segs] : [b];
+  return b;
+}
+
+const bossParts = (b) => (b.hidden || b.state === 'intro' ? NONE : b.parts);
+
+function damageBoss(game, b, dmg, mul = 1) {
+  if (b.dead || b.hidden || b.state === 'intro') return;
+  dmg *= mul;
+  b.hp -= dmg;
+  b.hitT = 0.1;
+  game.emit('dmg', b.x, b.y - b.r, { n: dmg });
+  if (b.hp <= 0) killBoss(game, b);
+}
+
+function killBoss(game, b) {
+  const def = b.def, first = !game.cores[b.id], bonus = 1 + 0.5 * b.lvl;
+  b.dead = true; b.hp = 0;
+  game.cores[b.id] = true;
+  game.bossKills[b.id] = (game.bossKills[b.id] || 0) + 1;
+  game.boss = null;
+  game.ebullets.length = 0; game.hazards.length = 0;
+  for (const m of game.mobs) if (m.minion) m.dead = true;
+  let ess = Math.round(def.essence * bonus);
+  const chunk = Math.max(5, Math.round(ess / 14));
+  while (ess > 0) { const v = Math.min(chunk, ess); game.drop('essence', v, b.x, b.y, 2.4); ess -= v; }
+  for (const [item, n] of def.loot) {
+    let left = Math.round(n * bonus);
+    while (left > 0) { const v = Math.min(4, left); game.drop(item, v, b.x, b.y, 2.4); left -= v; }
+  }
+  for (let i = 0; i < 3; i++) game.drop('heart', 1, b.x, b.y, 2);
+  game.emit('bossDead', b.x, b.y, { id: b.id, name: b.name, first, color: def.color, r: b.r });
+  if (b.id === 'volcano' && !game.won) { game.won = true; game.emit('victory', b.x, b.y); }
+}
+
+function fire(game, b, a, speed, o) { game.eshoot(b.x, b.y, a, speed, b.def.shot * b.dmgMul, o); }
+
+// Ring of n shots; gapN consecutive shots starting at gapAt are left out as a dodge lane.
+function ring(game, b, n, speed, off, o, gapAt = 0, gapN = 0) {
+  for (let i = 0; i < n; i++) {
+    if (gapN && (i - gapAt + n) % n < gapN) continue;
+    fire(game, b, off + (i / n) * TAU, speed, o);
+  }
+}
+
+function minionCount(game) {
+  let n = 0;
+  for (const m of game.mobs) if (m.minion && !m.dead) n++;
+  return n;
+}
+
+function summon(game, b, type, n, dist) {
+  for (let i = 0; i < n; i++) {
+    const a = game.rng() * TAU;
+    game.spawnMob(type, b.x + Math.cos(a) * dist, b.y + Math.sin(a) * dist, { minion: true });
+  }
+}
+
+function clampToArena(b) {
+  const lx = b.x - b.lair.x, ly = b.y - b.lair.y, ld = Math.hypot(lx, ly), lim = ARENA_RADIUS - 30;
+  if (ld > lim) { b.x = b.lair.x + (lx / ld) * lim; b.y = b.lair.y + (ly / ld) * lim; }
+}
+
+// Tail segments trail the head like beads on a string.
+function follow(b) {
+  let px = b.x, py = b.y, pr = b.r;
+  for (const s of b.segs) {
+    const dx = s.x - px, dy = s.y - py, d = Math.hypot(dx, dy) || 0.01, gap = (pr + s.r) * 0.62;
+    s.x = px + (dx / d) * gap; s.y = py + (dy / d) * gap;
+    px = s.x; py = s.y; pr = s.r;
+  }
+}
+
+const AI = {
+  // Thornmother: thorn rings, aimed lashes and summoned creatures.
+  forest(game, b, dt, p, dx, dy, d) {
+    const p2 = b.phase >= 2;
+    if (d > 240) { b.x += (dx / d) * 48 * dt; b.y += (dy / d) * 48 * dt; }
+    b.ang += dt * (p2 ? 0.9 : 0.5);
+    b.c1 -= dt; b.c2 -= dt; b.c3 -= dt;
+    if (b.c1 <= 0) {
+      b.c1 = p2 ? 1.7 : 2.4;
+      ring(game, b, p2 ? 18 : 14, 225, b.ang, THORN);
+      game.emit('bossShot', b.x, b.y);
+    }
+    if (b.c3 <= 0) {
+      b.c3 = p2 ? 2.6 : 4.4;
+      const a = Math.atan2(dy, dx), n = p2 ? 5 : 3;
+      for (let i = 0; i < n; i++) fire(game, b, a + (i - (n - 1) / 2) * 0.15, 400, LASH);
+    }
+    if (b.c2 <= 0) {
+      b.c2 = p2 ? 8 : 11;
+      if (minionCount(game) < 5) {
+        summon(game, b, 'spore', 2, 90);
+        if (p2) summon(game, b, 'wolf', 1, 90);
+      }
+    }
+  },
+
+  // Dune wyrm: circles and spits, charges in a straight line, later burrows under the player.
+  desert(game, b, dt, p, dx, dy, d) {
+    const p2 = b.phase >= 2, def = b.def, k = 1 - Math.exp(-dt * 4);
+    b.st -= dt;
+    switch (b.state) {
+      case 'idle':
+        b.state = 'circle'; b.st = 3; b.c1 = 0.7; b.dir = game.rng() < 0.5 ? 1 : -1;
+        break;
+      case 'circle': {
+        const f = clamp((d - 330) / 150, -1, 1);
+        const tx = (dx / d) * f - (dy / d) * b.dir * 0.9, ty = (dy / d) * f + (dx / d) * b.dir * 0.9;
+        b.vx += (tx * 270 - b.vx) * k; b.vy += (ty * 270 - b.vy) * k;
+        b.c1 -= dt;
+        if (b.c1 <= 0) {
+          b.c1 = p2 ? 0.8 : 1.15;
+          const a = Math.atan2(dy, dx), n = p2 ? 5 : 3;
+          for (let i = 0; i < n; i++) fire(game, b, a + (i - (n - 1) / 2) * 0.2, 300, SPIT);
+        }
+        if (b.st <= 0) { b.state = 'aim'; b.st = 0.75; }
+        break;
+      }
+      case 'aim':
+        b.vx *= 1 - k; b.vy *= 1 - k;
+        if (b.st > 0.22) b.ca = Math.atan2(dy, dx); // the last moments are locked so the charge can be dodged
+        if (b.st <= 0) { b.state = 'charge'; b.st = 0.85; game.emit('bossShot', b.x, b.y); }
+        break;
+      case 'charge':
+        b.vx = Math.cos(b.ca) * 780; b.vy = Math.sin(b.ca) * 780;
+        if (b.st > 0) break;
+        if (p2 && b.seq++ % 2 === 0) {
+          b.state = 'burrow'; b.st = 1; b.hidden = true; b.vx = b.vy = 0;
+          game.emit('boom', b.x, b.y, { r: 70, color: def.color, hostile: true });
+        } else { b.state = 'circle'; b.st = 2.8; b.dir = -b.dir; }
+        break;
+      case 'burrow':
+        if (b.st > 0) break;
+        b.state = 'emerge'; b.st = 0.9;
+        b.x = p.x; b.y = p.y;
+        clampToArena(b);
+        game.addHazard(b.x, b.y, 135, 0.9, def.slam * b.dmgMul, def.color);
+        break;
+      case 'emerge':
+        if (b.st > 0) break;
+        b.hidden = false; b.state = 'circle'; b.st = 2.6;
+        for (const s of b.segs) { s.x = b.x; s.y = b.y; }
+        ring(game, b, 16, 240, game.rng() * TAU, SPIT);
+        break;
+    }
+    if (b.hidden) return;
+    b.x += b.vx * dt; b.y += b.vy * dt;
+    if (b.state === 'aim') b.face += angDiff(b.face, b.ca) * Math.min(1, dt * 10);
+    else if (b.vx * b.vx + b.vy * b.vy > 400) b.face = Math.atan2(b.vy, b.vx);
+  },
+
+  // Frost colossus: slow advance with spiral streams, mortar strikes and a stomp.
+  tundra(game, b, dt, p, dx, dy, d) {
+    const p2 = b.phase >= 2, def = b.def, rng = game.rng;
+    if (d > 170 && b.state !== 'stomp') { b.x += (dx / d) * 58 * dt; b.y += (dy / d) * 58 * dt; }
+    b.face += angDiff(b.face, Math.atan2(dy, dx)) * Math.min(1, dt * 3);
+    b.st -= dt;
+    switch (b.state) {
+      case 'idle':
+        if (b.st > 0) break;
+        switch (b.seq++ % 4) {
+          case 0:
+            b.state = 'spiral'; b.st = 3.6; b.acc = 0; b.dir = -b.dir;
+            break;
+          case 2:
+            b.state = 'stomp'; b.st = 0.8;
+            game.addHazard(b.x, b.y, 170, 0.8, def.slam * b.dmgMul, def.color);
+            break;
+          default: {
+            const n = p2 ? 8 : 5;
+            for (let i = 0; i < n; i++) {
+              const a = rng() * TAU, r = i === 0 ? 0 : 70 + rng() * 190;
+              game.addHazard(p.x + Math.cos(a) * r, p.y + Math.sin(a) * r, 78, 1 + i * 0.08, def.slam * b.dmgMul, def.color);
+            }
+            if (p2) for (let i = 0; i < 2; i++) fire(game, b, Math.atan2(dy, dx) + (i ? 0.6 : -0.6), 150, ORB);
+            b.st = 1.5;
+            game.emit('bossShot', b.x, b.y);
+          }
+        }
+        break;
+      case 'spiral': {
+        const arms = p2 ? 3 : 2;
+        b.acc += dt;
+        while (b.acc >= 0.11) {
+          b.acc -= 0.11; b.ang += 0.19 * b.dir;
+          for (let i = 0; i < arms; i++) fire(game, b, b.ang + (i / arms) * TAU, 215, ICE);
+        }
+        if (b.st <= 0) { b.state = 'idle'; b.st = 1.1; }
+        break;
+      }
+      case 'stomp':
+        if (b.st > 0) break;
+        ring(game, b, p2 ? 26 : 20, 260, rng() * TAU, ICE);
+        b.state = 'idle'; b.st = 1.2;
+        game.emit('bossShot', b.x, b.y);
+        break;
+    }
+  },
+
+  // Ashen heart: rooted in place; ember rings with a gap, sweeping beams and meteor rain.
+  volcano(game, b, dt, p, dx, dy) {
+    const ph = b.phase, def = b.def, rng = game.rng;
+    b.st -= dt; b.c1 -= dt; b.c2 -= dt;
+    b.ang += dt * 0.6;
+    if (b.c1 <= 0) {
+      b.c1 = ph >= 3 ? 1.9 : 2.7;
+      ring(game, b, 22, 195, rng() * TAU, EMBER, Math.floor(rng() * 22), 4);
+      game.emit('bossShot', b.x, b.y);
+    }
+    if (ph >= 3 && b.c2 <= 0) {
+      b.c2 = 9;
+      if (minionCount(game) < 4) summon(game, b, 'magmiteS', 2, 100);
+    }
+    switch (b.state) {
+      case 'idle':
+        if (b.st > 0) break;
+        if (b.seq++ % 2 === 0) {
+          b.state = 'lcharge'; b.st = 1.1; b.nl = ph + 1; b.la = rng() * TAU;
+          b.lw = (rng() < 0.5 ? -1 : 1) * (0.4 + 0.09 * ph);
+        } else { b.state = 'meteor'; b.st = 3.2; b.acc = 0; }
+        break;
+      case 'lcharge':
+        if (b.st <= 0) { b.state = 'laser'; b.st = 4.4; game.emit('bossLaser', b.x, b.y); }
+        break;
+      case 'laser':
+        b.la += b.lw * dt;
+        for (let i = 0; i < b.nl; i++) {
+          const a = b.la + (i / b.nl) * TAU, cx = Math.cos(a), cy = Math.sin(a);
+          const t = clamp(dx * cx + dy * cy, b.r, LASER_LEN);
+          const ox = dx - cx * t, oy = dy - cy * t;
+          if (ox * ox + oy * oy < (LASER_W + p.r * 0.7) ** 2) { game.hurtPlayer(def.laser * b.dmgMul, b.x + cx * t, b.y + cy * t); break; }
+        }
+        if (b.st <= 0) { b.state = 'idle'; b.st = 1.1; }
+        break;
+      case 'meteor': {
+        const every = ph >= 3 ? 0.2 : 0.3;
+        b.acc += dt;
+        while (b.acc >= every) {
+          b.acc -= every;
+          const a = rng() * TAU, r = rng() < 0.3 ? 0 : 60 + rng() * 260;
+          game.addHazard(p.x + p.vx * 0.5 + Math.cos(a) * r, p.y + p.vy * 0.5 + Math.sin(a) * r, 84, 1, def.slam * b.dmgMul, def.color2);
+        }
+        if (b.st <= 0) { b.state = 'idle'; b.st = 1; }
+        break;
+      }
+    }
+  },
+};
+
+function updateBoss(game, b, dt) {
+  const p = game.player;
+  b.t += dt;
+  b.hitT = Math.max(0, b.hitT - dt);
+  if (!p.alive || dist2(p.x, p.y, b.lair.x, b.lair.y) > LEASH * LEASH) {
+    game.despawnBoss();
+    game.toast(`${b.name} скрылся — возвращайся к алтарю`);
+    return;
+  }
+  if (b.state === 'intro') {
+    b.st -= dt;
+    if (b.st <= 0) { b.state = 'idle'; b.st = 0.6; }
+    return;
+  }
+  let phase = 1;
+  for (const f of b.def.phases) if (b.hp / b.maxHp <= f) phase++;
+  if (phase > b.phase) {
+    b.phase = phase;
+    ring(game, b, 16, 170, 0, { r: 8, color: b.def.color, life: 4 });
+    game.emit('bossPhase', b.x, b.y, { name: b.name, phase, color: b.def.color });
+  }
+  const dx = p.x - b.x, dy = p.y - b.y;
+  AI[b.id](game, b, dt, p, dx, dy, Math.hypot(dx, dy) || 1);
+  if (game.boss !== b) return;
+  clampToArena(b);
+  if (b.segs) follow(b);
+  if (b.hidden) return;
+  for (const pt of b.parts) {
+    if (dist2(p.x, p.y, pt.x, pt.y) >= (pt.r + p.r - 4) ** 2) continue;
+    game.hurtPlayer(b.def.touch * b.dmgMul * (b.state === 'charge' ? 1.5 : 1), pt.x, pt.y);
+    break;
+  }
+}
+
+return { LASER_LEN, LASER_W, spawnBoss, bossParts, damageBoss, updateBoss };
+})();
+__modules['game'] = (() => {
+// Headless game simulation (no DOM): the browser front-end and `node --test` both drive it.
+const {
+  TILE, DAY_LENGTH, HOME_RADIUS, RECALL_TIME, BIOME_IDS, BIOMES, WEAPONS, UPGRADES, CROPS, MOBS, BIOME_MOBS, BOSSES,
+} = __modules['config'];
+const { TAU, clamp, smooth, dist2, mulberry32, angDiff, segCircle } = __modules['util'];
+const { World } = __modules['world'];
+const { spawnBoss, updateBoss, bossParts, damageBoss } = __modules['bosses'];
+
+const DASH_TIME = 0.17;
+const DASH_SPEED = 820;
+const AGGRO = 740;
+const DESPAWN = 1500;
+const CROP_IDS = Object.keys(CROPS);
+const WISP_SHOT = { r: 6, color: '#6a5aff', homing: 1.3, life: 3.2 };
+const YETI_SHOT = { r: 7, color: '#4a7aff', life: 2.2 };
+const SENT_SHOT = { r: 6, color: '#ffe04a', life: 3.2 };
+
+// Held inputs persist; the edge-triggered ones are cleared at the end of every update.
+const newInput = () => ({
+  mx: 0, my: 0, aimX: 0, aimY: 0, fire: false, recall: false,
+  dash: false, interact: false, plant: false, cycleSeed: false, eat: null, weapon: -1, wheel: 0,
+});
+
+// Shared scratch for node push-out so the hot path allocates no closures.
+let pushE = null;
+function pushOut(n) {
+  if (!n.def.solid) return;
+  const dx = pushE.x - n.x, dy = pushE.y - n.y;
+  const d = Math.hypot(dx, dy) || 0.01;
+  const o = pushE.r + n.r - d;
+  if (o > 0) { pushE.x += (dx / d) * o; pushE.y += (dy / d) * o; }
+}
+
+function pick(table, u) {
+  let total = 0, acc = 0;
+  for (const [, w] of table) total += w;
+  for (const [id, w] of table) { acc += w / total; if (u < acc) return id; }
+  return table[0][0];
+}
+
+class Game {
+  constructor(opts = {}) {
+    const save = opts.save || null;
+    this.seed = save ? save.seed | 0 : opts.seed ?? ((Math.random() * 0x7fffffff) | 0);
+    this.world = new World(this.seed);
+    this.rng = mulberry32(this.seed ^ 0x51ed270b);
+    this.time = DAY_LENGTH * 0.06;
+    this.darkness = 0;
+    this.day = 1;
+    this.started = false;
+    this.player = {
+      x: 0, y: 70, vx: 0, vy: 0, kx: 0, ky: 0, r: 14, hp: 100, aim: 0, weapon: 0, cool: 0,
+      dashT: 0, dashCd: 0, dashMax: 1, dashDx: 1, dashDy: 0, invuln: 1, hurtT: 0, eatCd: 0, burnT: 0, recall: 0,
+      plantHint: 0, alive: true, inLiquid: false, atHome: true, biome: 0, seedSel: 'berry', buffs: { rage: 0, frost: 0 },
+    };
+    this.inv = { wood: 0, ore: 0, crystal: 0, essence: 0, seedBerry: 3, seedPepper: 0, seedFrost: 0, berry: 2, pepper: 0, frost: 0 };
+    this.upg = {};
+    for (const u of UPGRADES) this.upg[u.id] = 0;
+    this.unlocked = { shard: true };
+    this.cores = {};
+    this.bossKills = {};
+    this.stats = { kills: 0, harvested: 0, deaths: 0 };
+    this.won = false;
+    this.crops = new Map(); // "tx,ty" -> { type, tx, ty, x, y, t0, dur }
+    this.bullets = [];
+    this.ebullets = [];
+    this.mobs = [];
+    this.pickups = [];
+    this.hazards = [];
+    this.boss = null;
+    this.events = []; // drained by the front-end for sound, particles and toasts
+    this.input = newInput();
+    this.prompt = null;
+    this.spot = null;
+    this.spawnT = 2;
+    this.pruneT = 4;
+    this.recallWarned = false;
+    if (save) this.applySave(save);
+    this.st = this.derived();
+    this.updateDay();
+  }
+
+  emit(type, x, y, data) {
+    const e = data || {};
+    e.type = type; e.x = x; e.y = y;
+    this.events.push(e);
+  }
+
+  toast(text, tone) { this.emit('toast', 0, 0, { text, tone }); }
+
+  derived() {
+    const u = this.upg, b = this.player.buffs;
+    return {
+      maxHp: 100 + 20 * u.hp,
+      dmgMul: (1 + 0.12 * u.dmg) * (b.rage > 0 ? 1.4 : 1),
+      rateMul: 1 + 0.08 * u.rate,
+      speed: 245 * (1 + 0.05 * u.speed) * (b.frost > 0 ? 1.15 : 1),
+      magnet: 95 * (1 + 0.35 * u.magnet),
+      dashCd: 1.25 * Math.pow(0.88, u.dash),
+      regen: 0.5 * u.regen,
+    };
+  }
+
+  update(dt) {
+    if (this.events.length > 3000) this.events.length = 0;
+    this.time += dt;
+    this.world.now = this.time;
+    this.updateDay();
+    this.st = this.derived();
+    const p = this.player;
+    if (p.hp > this.st.maxHp) p.hp = this.st.maxHp;
+    if (p.alive) this.updatePlayer(dt);
+    this.updateBullets(dt);
+    this.updateMobs(dt);
+    if (this.boss) updateBoss(this, this.boss, dt);
+    this.updateEnemyBullets(dt);
+    this.updateHazards(dt);
+    this.updatePickups(dt);
+    this.updateSpawner(dt);
+    this.updatePrompt();
+    this.pruneT -= dt;
+    if (this.pruneT <= 0) { this.pruneT = 4; this.world.prune(p.x, p.y); }
+    const inp = this.input;
+    inp.dash = inp.interact = inp.plant = inp.cycleSeed = false;
+    inp.eat = null; inp.weapon = -1; inp.wheel = 0;
+  }
+
+  updateDay() {
+    const ph = (this.time % DAY_LENGTH) / DAY_LENGTH;
+    const wasNight = this.darkness > 0.5;
+    this.darkness = smooth(0.58, 0.68, ph) - smooth(0.93, 1, ph);
+    this.day = 1 + Math.floor(this.time / DAY_LENGTH);
+    const night = this.darkness > 0.5;
+    if (this.started && night !== wasNight) {
+      this.toast(night ? 'Наступает ночь — твари злее, добыча богаче' : 'Рассвет. Ночные твари редеют', night ? 'night' : 'day');
+    }
+    this.started = true;
+  }
+
+  // ---------------------------------------------------------------- player
+
+  updatePlayer(dt) {
+    const p = this.player, inp = this.input, st = this.st, w = this.world;
+    p.invuln = Math.max(0, p.invuln - dt);
+    p.hurtT = Math.max(0, p.hurtT - dt);
+    p.eatCd = Math.max(0, p.eatCd - dt);
+    p.cool = Math.max(0, p.cool - dt);
+    p.dashCd = Math.max(0, p.dashCd - dt);
+    p.plantHint = Math.max(0, p.plantHint - dt);
+    p.buffs.rage = Math.max(0, p.buffs.rage - dt);
+    p.buffs.frost = Math.max(0, p.buffs.frost - dt);
+    p.aim = Math.atan2(inp.aimY - p.y, inp.aimX - p.x);
+
+    let mx = inp.mx, my = inp.my;
+    const ml = Math.hypot(mx, my);
+    if (ml > 1) { mx /= ml; my /= ml; }
+    p.inLiquid = w.liquidAt(p.x, p.y);
+    p.biome = w.biomeIdx(p.x, p.y);
+    if (inp.dash && p.dashCd <= 0 && p.dashT <= 0) {
+      if (ml > 0.1) { p.dashDx = inp.mx / ml; p.dashDy = inp.my / ml; } else { p.dashDx = Math.cos(p.aim); p.dashDy = Math.sin(p.aim); }
+      p.dashT = DASH_TIME;
+      p.dashCd = p.dashMax = st.dashCd;
+      p.invuln = Math.max(p.invuln, DASH_TIME + 0.1);
+      this.emit('dash', p.x, p.y);
+    }
+    if (p.dashT > 0) {
+      p.dashT -= dt;
+      p.vx = p.dashDx * DASH_SPEED; p.vy = p.dashDy * DASH_SPEED;
+    } else {
+      const sp = st.speed * (p.inLiquid ? 0.55 : 1), k = 1 - Math.exp(-dt * 16);
+      p.vx += (mx * sp - p.vx) * k; p.vy += (my * sp - p.vy) * k;
+    }
+    p.x += (p.vx + p.kx) * dt; p.y += (p.vy + p.ky) * dt;
+    const kd = Math.exp(-dt * 9);
+    p.kx *= kd; p.ky *= kd;
+    pushE = p;
+    w.nodesNear(p.x, p.y, p.r, pushOut);
+
+    // Lava burns, the beacon heals.
+    if (p.inLiquid && p.biome === 4) {
+      p.burnT -= dt;
+      if (p.burnT <= 0) { p.burnT = 0.5; this.hurtPlayer(6, p.x, p.y, true); if (!p.alive) return; }
+    } else p.burnT = 0.15;
+    p.atHome = p.x * p.x + p.y * p.y < HOME_RADIUS * HOME_RADIUS;
+    const heal = st.regen + (p.atHome ? 8 : 0);
+    if (heal > 0 && p.hp < st.maxHp) p.hp = Math.min(st.maxHp, p.hp + heal * dt);
+
+    // Weapons.
+    if (inp.weapon >= 0 && inp.weapon < WEAPONS.length && this.unlocked[WEAPONS[inp.weapon].id]) this.setWeapon(inp.weapon);
+    if (inp.wheel) {
+      let i = p.weapon;
+      for (let k = 0; k < WEAPONS.length; k++) {
+        i = (i + inp.wheel + WEAPONS.length) % WEAPONS.length;
+        if (this.unlocked[WEAPONS[i].id]) break;
+      }
+      this.setWeapon(i);
+    }
+    if (inp.fire && p.cool <= 0) this.fire();
+
+    // Farming and items.
+    if (inp.cycleSeed) {
+      let i = CROP_IDS.indexOf(p.seedSel);
+      for (let k = 0; k < CROP_IDS.length; k++) {
+        i = (i + 1) % CROP_IDS.length;
+        if (this.inv[CROPS[CROP_IDS[i]].seed] > 0) break;
+      }
+      p.seedSel = CROP_IDS[i];
+      p.plantHint = 3;
+    }
+    if (inp.plant) this.plant();
+    if (inp.interact) this.interact();
+    if (inp.eat) this.eat(inp.eat);
+    this.spot = p.plantHint > 0 ? this.plantSpot() : null;
+
+    // Hold to return to the beacon.
+    if (inp.recall && this.boss) {
+      if (!this.recallWarned) { this.recallWarned = true; this.toast('Хранитель не отпускает — возврат невозможен'); }
+    } else if (inp.recall && !p.atHome) {
+      p.recall += dt;
+      if (p.recall >= RECALL_TIME) {
+        p.recall = 0;
+        this.emit('recall', p.x, p.y);
+        p.x = 0; p.y = 70; p.vx = p.vy = p.kx = p.ky = 0;
+        this.ebullets.length = 0; this.hazards.length = 0;
+        this.emit('recall', p.x, p.y);
+      }
+    } else {
+      p.recall = 0;
+      if (!inp.recall) this.recallWarned = false;
+    }
+  }
+
+  setWeapon(i) {
+    const p = this.player;
+    if (i === p.weapon) return;
+    p.weapon = i;
+    p.cool = Math.max(p.cool, 0.12);
+    this.emit('swap', p.x, p.y);
+  }
+
+  fire() {
+    const p = this.player, w = WEAPONS[p.weapon], st = this.st, rng = this.rng;
+    p.cool = 1 / (w.rate * st.rateMul);
+    const n = w.count || 1, ox = Math.cos(p.aim) * 12, oy = Math.sin(p.aim) * 12;
+    for (let i = 0; i < n; i++) {
+      const a = p.aim + (n > 1 ? (i / (n - 1) - 0.5) * w.arc : 0) + (rng() - 0.5) * (w.spread || 0);
+      const sp = w.speed * (n > 1 ? 0.9 + rng() * 0.2 : 1);
+      this.bullets.push({
+        x: p.x + ox, y: p.y + oy, vx: Math.cos(a) * sp, vy: Math.sin(a) * sp, r: w.r, dmg: w.dmg * st.dmgMul, life: w.life,
+        w: p.weapon, pierce: !!w.pierce, explode: w.explode || 0, homing: w.homing || 0, hit: w.pierce ? [] : null, color: w.color,
+      });
+    }
+    this.emit('shoot', p.x, p.y, { weapon: w.id, a: p.aim, color: w.color });
+  }
+
+  hurtPlayer(dmg, sx, sy, soft) {
+    const p = this.player;
+    if (!p.alive || p.invuln > 0) return false;
+    if (p.buffs.frost > 0) dmg *= 0.6;
+    p.hp -= dmg;
+    p.hurtT = 0.3;
+    p.invuln = soft ? 0.1 : 0.5;
+    p.recall = 0;
+    if (!soft) {
+      const dx = p.x - sx, dy = p.y - sy, d = Math.hypot(dx, dy) || 1;
+      p.kx += (dx / d) * 220; p.ky += (dy / d) * 220;
+    }
+    this.emit('hurt', p.x, p.y, { n: dmg });
+    if (p.hp <= 0) this.killPlayer();
+    return true;
+  }
+
+  killPlayer() {
+    const p = this.player;
+    p.hp = 0; p.alive = false; p.dashT = 0; p.vx = p.vy = 0;
+    const lost = Math.floor(this.inv.essence * 0.25);
+    this.inv.essence -= lost;
+    this.stats.deaths++;
+    if (this.boss) this.despawnBoss();
+    this.emit('death', p.x, p.y, { lost });
+  }
+
+  respawn() {
+    const p = this.player;
+    p.x = 0; p.y = 70; p.vx = p.vy = p.kx = p.ky = 0;
+    p.hp = this.derived().maxHp;
+    p.alive = true; p.invuln = 2; p.recall = 0;
+    p.buffs.rage = p.buffs.frost = 0;
+    this.mobs.length = 0; this.bullets.length = 0; this.ebullets.length = 0; this.hazards.length = 0;
+    this.emit('respawn', p.x, p.y);
+  }
+
+  // ---------------------------------------------------------------- farming
+
+  cropProgress(c) { return clamp((this.time - c.t0) / c.dur, 0, 1); }
+
+  // The tile in front of the player and whether a seed may go there.
+  plantSpot() {
+    const p = this.player, w = this.world;
+    const tx = Math.floor((p.x + Math.cos(p.aim) * 44) / TILE), ty = Math.floor((p.y + Math.sin(p.aim) * 44) / TILE);
+    const x = (tx + 0.5) * TILE, y = (ty + 0.5) * TILE;
+    let ok = !this.crops.has(tx + ',' + ty) && !w.liquidAt(x, y) && x * x + y * y > 100 * 100;
+    if (ok) for (const l of w.lairs) if (dist2(x, y, l.x, l.y) < 150 * 150) ok = false;
+    if (ok) w.nodesNear(x, y, 20, () => { ok = false; });
+    return { tx, ty, x, y, ok };
+  }
+
+  plant() {
+    const p = this.player;
+    p.plantHint = 3;
+    let type = p.seedSel;
+    if (!(this.inv[CROPS[type].seed] > 0)) {
+      type = CROP_IDS.find((id) => this.inv[CROPS[id].seed] > 0);
+      if (!type) { this.toast('Нет семян — ищи кусты и побеждай тварей'); return false; }
+      p.seedSel = type;
+    }
+    const s = this.plantSpot();
+    if (!s.ok) { this.toast('Здесь не посадить'); return false; }
+    const def = CROPS[type], biome = BIOME_IDS[this.world.biomeIdx(s.x, s.y)];
+    const dur = def.grow * (def.likes.includes(biome) ? 0.6 : 1) * (0.9 + this.rng() * 0.2);
+    this.crops.set(s.tx + ',' + s.ty, { type, tx: s.tx, ty: s.ty, x: s.x, y: s.y, t0: this.time, dur });
+    this.inv[def.seed]--;
+    this.emit('plant', s.x, s.y, { crop: type });
+    return true;
+  }
+
+  harvest(c) {
+    const def = CROPS[c.type], rng = this.rng;
+    this.crops.delete(c.tx + ',' + c.ty);
+    const n = 2 + (rng() < 0.5 ? 1 : 0);
+    for (let i = 0; i < n; i++) this.drop(def.item, 1, c.x, c.y);
+    this.drop(def.seed, 1 + (rng() < 0.4 ? 1 : 0), c.x, c.y);
+    this.stats.harvested++;
+    this.emit('harvest', c.x, c.y, { crop: c.type });
+  }
+
+  // E: gather every ripe crop in reach, otherwise wake the guardian of a nearby lair.
+  interact() {
+    const p = this.player;
+    let got = 0;
+    for (const c of [...this.crops.values()]) {
+      if (dist2(p.x, p.y, c.x, c.y) < 80 * 80 && this.cropProgress(c) >= 1) { this.harvest(c); got++; }
+    }
+    if (got || this.boss) return;
+    for (const l of this.world.lairs) if (dist2(p.x, p.y, l.x, l.y) < 130 * 130) { this.summonBoss(l); return; }
+  }
+
+  eat(kind) {
+    const p = this.player;
+    if (p.eatCd > 0 || !(this.inv[kind] > 0)) return false;
+    if (kind === 'berry') {
+      if (p.hp >= this.st.maxHp - 0.5) return false;
+      p.hp = Math.min(this.st.maxHp, p.hp + 40);
+    } else if (kind === 'pepper') p.buffs.rage = 30;
+    else if (kind === 'frost') p.buffs.frost = 30;
+    else return false;
+    this.inv[kind]--;
+    p.eatCd = 0.35;
+    this.emit('eat', p.x, p.y, { kind });
+    return true;
+  }
+
+  updatePrompt() {
+    const p = this.player;
+    this.prompt = null;
+    if (!p.alive) return;
+    for (const c of this.crops.values()) {
+      if (dist2(p.x, p.y, c.x, c.y) < 80 * 80 && this.cropProgress(c) >= 1) { this.prompt = { key: 'E', text: 'собрать урожай' }; return; }
+    }
+    if (!this.boss) {
+      for (const l of this.world.lairs) {
+        if (dist2(p.x, p.y, l.x, l.y) >= 130 * 130) continue;
+        const lvl = this.bossKills[l.id] || 0;
+        this.prompt = { key: 'E', text: `пробудить Хранителя: ${BOSSES[l.id].name}${lvl ? ` (сила ×${lvl + 1})` : ''}` };
+        return;
+      }
+    }
+    if (p.recall > 0) this.prompt = { key: 'T', text: 'возврат к Маяку…', progress: p.recall / RECALL_TIME };
+  }
+
+  // ---------------------------------------------------------------- projectiles
+
+  nearestEnemy(x, y, range) {
+    let best = range * range, target = null;
+    for (const m of this.mobs) {
+      if (m.dead) continue;
+      const d = dist2(x, y, m.x, m.y);
+      if (d < best) { best = d; target = m; }
+    }
+    const b = this.boss;
+    if (b && bossParts(b).length && dist2(x, y, b.x, b.y) < best) target = b;
+    return target;
+  }
+
+  updateBullets(dt) {
+    const bs = this.bullets, mobs = this.mobs, w = this.world;
+    for (let i = bs.length - 1; i >= 0; i--) {
+      const b = bs[i];
+      b.life -= dt;
+      if (b.homing) {
+        const t = this.nearestEnemy(b.x, b.y, 460);
+        if (t) {
+          const cur = Math.atan2(b.vy, b.vx), sp = Math.hypot(b.vx, b.vy);
+          const a = cur + clamp(angDiff(cur, Math.atan2(t.y - b.y, t.x - b.x)), -b.homing * dt, b.homing * dt);
+          b.vx = Math.cos(a) * sp; b.vy = Math.sin(a) * sp;
+        }
+      }
+      const nx = b.x + b.vx * dt, ny = b.y + b.vy * dt;
+      let dead = b.life <= 0;
+      for (let j = 0; j < mobs.length && !dead; j++) {
+        const m = mobs[j];
+        if (m.dead || !segCircle(b.x, b.y, nx, ny, m.x, m.y, m.r + b.r)) continue;
+        if (b.hit) { if (b.hit.includes(m)) continue; b.hit.push(m); }
+        if (!b.explode) this.damageMob(m, b.dmg, b.vx, b.vy);
+        this.emit('hit', nx, ny, { color: b.color });
+        if (!b.pierce) dead = true;
+      }
+      const boss = this.boss;
+      if (!dead && boss) {
+        const parts = bossParts(boss);
+        for (let j = 0; j < parts.length; j++) {
+          const pt = parts[j];
+          if (!segCircle(b.x, b.y, nx, ny, pt.x, pt.y, pt.r + b.r)) continue;
+          if (b.hit) { if (b.hit.includes(boss)) break; b.hit.push(boss); }
+          if (!b.explode) damageBoss(this, boss, b.dmg, pt.mul);
+          this.emit('hit', nx, ny, { color: b.color });
+          if (!b.pierce) dead = true;
+          break;
+        }
+      }
+      if (!dead) {
+        const n = w.nodeHit(b.x, b.y, nx, ny, b.r, false);
+        if (n && !(b.hit && b.hit.includes(n))) {
+          if (b.hit) b.hit.push(n);
+          if (!b.explode) this.damageNode(n, b.dmg);
+          if (!b.pierce) dead = true;
+        }
+      }
+      b.x = nx; b.y = ny;
+      if (dead) {
+        if (b.explode) this.explode(b.x, b.y, b.explode, b.dmg, b.color);
+        bs[i] = bs[bs.length - 1];
+        bs.pop();
+      }
+    }
+  }
+
+  explode(x, y, radius, dmg, color) {
+    this.emit('boom', x, y, { r: radius, color });
+    for (const m of this.mobs) {
+      if (m.dead) continue;
+      const rr = radius + m.r, d = dist2(x, y, m.x, m.y);
+      if (d < rr * rr) this.damageMob(m, dmg * (d < rr * rr * 0.3 ? 1 : 0.65), m.x - x, m.y - y);
+    }
+    const b = this.boss;
+    if (b) for (const pt of bossParts(b)) if (dist2(x, y, pt.x, pt.y) < (radius + pt.r) ** 2) { damageBoss(this, b, dmg, pt.mul); break; }
+    this.world.nodesNear(x, y, radius, (n) => this.damageNode(n, dmg));
+  }
+
+  eshoot(x, y, a, speed, dmg, o) {
+    if (this.ebullets.length > 700) return;
+    this.ebullets.push({
+      x, y, vx: Math.cos(a) * speed, vy: Math.sin(a) * speed, r: o.r || 6, dmg, life: o.life || 4,
+      color: o.color || '#ff5d8f', homing: o.homing || 0, age: 0,
+    });
+  }
+
+  updateEnemyBullets(dt) {
+    const bs = this.ebullets, p = this.player, w = this.world;
+    for (let i = bs.length - 1; i >= 0; i--) {
+      const b = bs[i];
+      b.life -= dt; b.age += dt;
+      if (b.homing && p.alive) {
+        const cur = Math.atan2(b.vy, b.vx), sp = Math.hypot(b.vx, b.vy);
+        const a = cur + clamp(angDiff(cur, Math.atan2(p.y - b.y, p.x - b.x)), -b.homing * dt, b.homing * dt);
+        b.vx = Math.cos(a) * sp; b.vy = Math.sin(a) * sp;
+      }
+      const nx = b.x + b.vx * dt, ny = b.y + b.vy * dt;
+      let dead = b.life <= 0;
+      if (!dead && p.alive && segCircle(b.x, b.y, nx, ny, p.x, p.y, p.r * 0.8 + b.r) && this.hurtPlayer(b.dmg, b.x, b.y)) dead = true;
+      // Trees and rocks give cover, and the beacon's field shatters anything hostile.
+      if (!dead && (nx * nx + ny * ny < HOME_RADIUS * HOME_RADIUS || w.nodeHit(b.x, b.y, nx, ny, b.r * 0.5, true))) {
+        dead = true;
+        this.emit('spark', nx, ny, { color: b.color });
+      }
+      b.x = nx; b.y = ny;
+      if (dead) { bs[i] = bs[bs.length - 1]; bs.pop(); }
+    }
+  }
+
+  addHazard(x, y, r, delay, dmg, color) { this.hazards.push({ x, y, r, delay, dmg, color, t: 0 }); }
+
+  updateHazards(dt) {
+    const hs = this.hazards, p = this.player;
+    for (let i = hs.length - 1; i >= 0; i--) {
+      const h = hs[i];
+      h.t += dt;
+      if (h.t < h.delay) continue;
+      hs[i] = hs[hs.length - 1];
+      hs.pop();
+      this.emit('boom', h.x, h.y, { r: h.r, color: h.color, hostile: true });
+      if (p.alive && dist2(p.x, p.y, h.x, h.y) < (h.r + p.r * 0.4) ** 2) this.hurtPlayer(h.dmg, h.x, h.y);
+    }
+  }
+
+  // ---------------------------------------------------------------- nodes and loot
+
+  damageNode(n, dmg) {
+    n.hp -= dmg;
+    n.hitAt = this.time;
+    if (n.hp > 0) { this.emit('nodeHit', n.x, n.y, { color: n.def.color }); return; }
+    n.hp = n.def.hp;
+    n.deadUntil = this.time + n.def.respawn;
+    for (const [item, lo, hi] of n.def.drops) {
+      let c = lo + Math.floor(this.rng() * (hi - lo + 1));
+      while (c > 0) { const k = c > 4 ? 2 : 1; this.drop(item, k, n.x, n.y); c -= k; }
+    }
+    this.emit('nodeBreak', n.x, n.y, { color: n.def.color, r: n.r });
+  }
+
+  drop(kind, n, x, y, power = 1) {
+    if (this.pickups.length > 350) this.pickups.shift();
+    const a = this.rng() * TAU, s = (70 + this.rng() * 150) * power;
+    this.pickups.push({ kind, n, x, y, vx: Math.cos(a) * s, vy: Math.sin(a) * s, t: 0, life: 90 });
+  }
+
+  updatePickups(dt) {
+    const p = this.player, ps = this.pickups, mag = this.st.magnet, fr = Math.exp(-dt * 5);
+    for (let i = ps.length - 1; i >= 0; i--) {
+      const k = ps[i];
+      k.t += dt; k.life -= dt;
+      k.x += k.vx * dt; k.y += k.vy * dt;
+      k.vx *= fr; k.vy *= fr;
+      let gone = k.life <= 0;
+      if (!gone && p.alive && k.t > 0.3) {
+        const dx = p.x - k.x, dy = p.y - k.y, d2 = dx * dx + dy * dy;
+        if (d2 < 26 * 26) { this.collect(k); gone = true; }
+        else if (d2 < mag * mag) {
+          const d = Math.sqrt(d2), sp = 260 + (1 - d / mag) * 420;
+          k.vx = (dx / d) * sp; k.vy = (dy / d) * sp;
+        }
+      }
+      if (gone) { ps[i] = ps[ps.length - 1]; ps.pop(); }
+    }
+  }
+
+  collect(k) {
+    if (k.kind === 'heart') this.player.hp = Math.min(this.st.maxHp, this.player.hp + 18);
+    else this.inv[k.kind] = (this.inv[k.kind] || 0) + k.n;
+    this.emit('pickup', k.x, k.y, { kind: k.kind, n: k.n });
+  }
+
+  // ---------------------------------------------------------------- mobs
+
+  spawnMob(type, x, y, o = {}) {
+    const def = MOBS[type], rng = this.rng;
+    // Creatures grow tougher the further they live from the beacon.
+    const sc = 1 + Math.min(2.5, Math.max(0, Math.hypot(x, y) - 2500) / 6000);
+    const elite = !!o.elite, hp = def.hp * sc * (elite ? 3.2 : 1);
+    const m = {
+      type, def, x, y, vx: 0, vy: 0, kx: 0, ky: 0, r: def.r * (elite ? 1.35 : 1), hp, maxHp: hp,
+      dmg: def.dmg * (1 + (sc - 1) * 0.5) * (elite ? 1.4 : 1), ess: def.ess * sc * (elite ? 3 : 1) * (o.minion ? 0.4 : 1),
+      elite, minion: !!o.minion, state: '', t: rng() * 0.6, cd: (def.fireEvery || 2) * rng(), hitT: 0, angry: 0,
+      anim: rng() * 10, age: 0, seed: rng() * 100, side: rng() < 0.5 ? -1 : 1, face: rng() * TAU,
+      dx: 1, dy: 0, wt: 0, wa: 0, wm: 0, ang: rng() * TAU, acc: 0, slow: false, dead: false,
+    };
+    this.mobs.push(m);
+    return m;
+  }
+
+  damageMob(m, dmg, kx, ky) {
+    if (m.dead || m.age < 0.12) return;
+    m.hp -= dmg;
+    m.hitT = 0.12;
+    m.angry = 5;
+    const l = Math.hypot(kx, ky) || 1, kb = clamp(dmg * 9, 40, 220) * (m.def.kb ?? 1) * (m.elite ? 0.5 : 1);
+    m.kx = clamp(m.kx + (kx / l) * kb, -300, 300);
+    m.ky = clamp(m.ky + (ky / l) * kb, -300, 300);
+    this.emit('dmg', m.x, m.y - m.r, { n: dmg });
+    if (m.hp <= 0) this.killMob(m);
+  }
+
+  killMob(m) {
+    const rng = this.rng, def = m.def, boost = m.elite ? 3 : 1;
+    m.dead = true;
+    this.stats.kills++;
+    const ess = Math.max(1, Math.round(m.ess)), orbs = ess <= 3 ? 1 : ess <= 12 ? 2 : 3, part = Math.floor(ess / orbs);
+    for (let i = 0; i < orbs; i++) this.drop('essence', i ? part : ess - part * (orbs - 1), m.x, m.y);
+    if (rng() < 0.045 * boost) this.drop('heart', 1, m.x, m.y);
+    const crop = CROPS[BIOMES[BIOME_IDS[this.world.biomeIdx(m.x, m.y)]].crop];
+    if (rng() < 0.07 * boost) this.drop(crop.seed, 1, m.x, m.y);
+    if (def.drops) for (const [item, chance] of def.drops) if (rng() < chance * boost) this.drop(item, 1 + (rng() < 0.3 ? 1 : 0), m.x, m.y);
+    if (m.elite) this.drop('crystal', 2, m.x, m.y);
+    if (def.split) for (let i = 0; i < 2; i++) this.spawnMob(def.split, m.x + (i ? 12 : -12), m.y + (rng() - 0.5) * 16, { minion: m.minion });
+    this.emit('kill', m.x, m.y, { color: def.color, r: m.r, elite: m.elite });
+  }
+
+  updateMobs(dt) {
+    const p = this.player, mobs = this.mobs, rng = this.rng, w = this.world;
+    const kv = 1 - Math.exp(-dt * 8), kd = Math.exp(-dt * 7);
+    for (let i = mobs.length - 1; i >= 0; i--) {
+      const m = mobs[i];
+      let dx = p.x - m.x, dy = p.y - m.y;
+      const d = Math.hypot(dx, dy) || 1;
+      if (m.dead || d > DESPAWN) { mobs[i] = mobs[mobs.length - 1]; mobs.pop(); continue; }
+      dx /= d; dy /= d;
+      m.hitT = Math.max(0, m.hitT - dt);
+      m.angry = Math.max(0, m.angry - dt);
+      m.anim += dt; m.age += dt;
+      const def = m.def, sp = def.speed * (m.slow ? 0.6 : 1);
+      // The beacon hides the player; only creatures that were just hit keep hunting.
+      const aggro = p.alive && d < AGGRO && (!p.atHome || m.angry > 0 || m.minion);
+      let vx = 0, vy = 0, direct = false, roam = false;
+      switch (def.ai) {
+        case 'chaser': roam = true; break;
+        case 'hopper':
+          m.t -= dt;
+          if (m.state === 'hop') {
+            vx = m.dx * sp * 2.1; vy = m.dy * sp * 2.1;
+            if (m.t <= 0) { m.state = ''; m.t = 0.3 + rng() * 0.5; }
+          } else if (m.t <= 0) {
+            const a = aggro ? Math.atan2(dy, dx) + (rng() - 0.5) * 0.6 : rng() * TAU;
+            m.dx = Math.cos(a); m.dy = Math.sin(a); m.state = 'hop'; m.t = 0.36;
+          }
+          break;
+        case 'swooper':
+          if (!aggro) { roam = true; break; }
+          if (m.t > 0) { m.t -= dt; vx = -dx * sp; vy = -dy * sp; } else {
+            const s = Math.sin(m.anim * 6 + m.seed) * 0.9;
+            vx = (dx - dy * s) * sp; vy = (dy + dx * s) * sp;
+          }
+          break;
+        case 'shooter':
+          if (!aggro) { roam = true; m.state = ''; break; }
+          if (m.state === 'aim') {
+            m.t -= dt;
+            if (m.t <= 0) {
+              const s = def.shot, a = Math.atan2(dy, dx);
+              for (let k = 0; k < s.n; k++) this.eshoot(m.x, m.y, a + (k - (s.n - 1) / 2) * s.spread, s.speed, m.dmg, s);
+              m.state = ''; m.cd = def.fireEvery * (0.85 + rng() * 0.3);
+              this.emit('mobShot', m.x, m.y);
+            }
+          } else {
+            const f = d > def.range ? 1 : d < def.range * 0.55 ? -1 : 0;
+            vx = (dx * f - dy * m.side * 0.45) * sp; vy = (dy * f + dx * m.side * 0.45) * sp;
+            m.cd -= dt;
+            if (m.cd <= 0 && d < def.range * 1.35) { m.state = 'aim'; m.t = 0.42; }
+          }
+          break;
+        case 'charger':
+          if (m.state === 'windup') {
+            m.t -= dt;
+            if (m.t <= 0) { m.state = 'dash'; m.t = 0.48; }
+          } else if (m.state === 'dash') {
+            m.t -= dt; vx = m.dx * 620; vy = m.dy * 620; direct = true;
+            if (m.t <= 0) { m.state = 'rest'; m.t = 0.7; }
+          } else if (m.state === 'rest') {
+            m.t -= dt;
+            if (m.t <= 0) m.state = '';
+          } else if (aggro && d < 330 && d > 70) { m.state = 'windup'; m.t = 0.5; m.dx = dx; m.dy = dy; } else roam = true;
+          break;
+        case 'bomber':
+          if (m.state === 'fuse') {
+            m.t -= dt; vx = dx * sp * 0.3; vy = dy * sp * 0.3;
+            if (m.t <= 0) {
+              this.addHazard(m.x, m.y, 92, 0, m.dmg, '#ff8c2a');
+              m.dead = true;
+              this.emit('kill', m.x, m.y, { color: def.color, r: m.r });
+            }
+          } else {
+            roam = true;
+            if (aggro && d < 80) { m.state = 'fuse'; m.t = 0.55; }
+          }
+          break;
+        case 'orbiter': {
+          if (!aggro) { roam = true; break; }
+          const f = clamp((d - 250) / 110, -1, 1);
+          vx = (dx * f - dy * m.side * 0.85) * sp; vy = (dy * f + dx * m.side * 0.85) * sp;
+          m.cd -= dt;
+          if (m.cd <= 0 && d < 420) {
+            m.cd = def.fireEvery * (0.8 + rng() * 0.4);
+            this.eshoot(m.x, m.y, Math.atan2(dy, dx), 215, m.dmg, WISP_SHOT);
+            this.emit('mobShot', m.x, m.y);
+          }
+          break;
+        }
+        case 'tank':
+          if (m.state === 'slam') {
+            m.t -= dt;
+            if (m.t <= 0) {
+              m.state = ''; m.cd = 3.4;
+              const off = rng() * TAU;
+              for (let k = 0; k < 12; k++) this.eshoot(m.x, m.y, off + (k / 12) * TAU, 230, m.dmg * 0.6, YETI_SHOT);
+            }
+          } else {
+            roam = true;
+            m.cd -= dt;
+            if (aggro && m.cd <= 0 && d < 180) { m.state = 'slam'; m.t = 0.7; roam = false; this.addHazard(m.x, m.y, 125, 0.7, m.dmg, '#4a7aff'); }
+          }
+          break;
+        case 'turret':
+          if (!aggro) { roam = true; m.state = ''; break; }
+          if (d > 330) { vx = dx * sp; vy = dy * sp; }
+          if (m.state === 'fire') {
+            m.t -= dt; m.acc += dt;
+            while (m.acc >= 0.15) {
+              m.acc -= 0.15; m.ang += 0.5;
+              this.eshoot(m.x, m.y, m.ang, 200, m.dmg, SENT_SHOT);
+              this.eshoot(m.x, m.y, m.ang + Math.PI, 200, m.dmg, SENT_SHOT);
+            }
+            if (m.t <= 0) { m.state = ''; m.cd = 2.2; }
+          } else {
+            m.cd -= dt;
+            if (m.cd <= 0 && d < 440) { m.state = 'fire'; m.t = 1.8; m.acc = 0; }
+          }
+          break;
+      }
+      if (roam) {
+        if (aggro) { vx = dx * sp; vy = dy * sp; } else {
+          m.wt -= dt;
+          if (m.wt <= 0) { m.wt = 1.2 + rng() * 2.4; m.wa = rng() * TAU; m.wm = rng() < 0.65 ? 0.35 : 0; }
+          vx = Math.cos(m.wa) * sp * m.wm; vy = Math.sin(m.wa) * sp * m.wm;
+        }
+      }
+      if (direct) { m.vx = vx; m.vy = vy; } else { m.vx += (vx - m.vx) * kv; m.vy += (vy - m.vy) * kv; }
+      m.x += (m.vx + m.kx) * dt; m.y += (m.vy + m.ky) * dt;
+      m.kx *= kd; m.ky *= kd;
+      // The beacon's field pushes creatures out of the safe zone.
+      const hd = Math.hypot(m.x, m.y);
+      if (hd < HOME_RADIUS + 20 && hd > 1) { m.x += (m.x / hd) * 320 * dt; m.y += (m.y / hd) * 320 * dt; }
+      if (!def.flying) {
+        pushE = m;
+        w.nodesNear(m.x, m.y, m.r, pushOut);
+        m.slow = w.liquidAt(m.x, m.y);
+      }
+      if (m.state === 'windup') m.face = Math.atan2(m.dy, m.dx);
+      else if (m.vx * m.vx + m.vy * m.vy > 200) m.face = Math.atan2(m.vy, m.vx);
+      else if (aggro) m.face = Math.atan2(dy, dx);
+      if (p.alive && d < m.r + p.r - 3 && this.hurtPlayer(m.dmg * (m.state === 'dash' ? 1.4 : 1), m.x, m.y) && def.ai === 'swooper') m.t = 0.55;
+    }
+    // Keep the pack from stacking into one blob.
+    for (let i = 0; i < mobs.length; i++) {
+      const a = mobs[i];
+      for (let j = i + 1; j < mobs.length; j++) {
+        const b = mobs[j], dx = b.x - a.x, dy = b.y - a.y, rr = a.r + b.r, d2 = dx * dx + dy * dy;
+        if (d2 >= rr * rr || d2 < 0.01) continue;
+        const d = Math.sqrt(d2), o = ((rr - d) * 0.5) / d;
+        a.x -= dx * o; a.y -= dy * o; b.x += dx * o; b.y += dy * o;
+      }
+    }
+  }
+
+  updateSpawner(dt) {
+    this.spawnT -= dt;
+    if (this.spawnT > 0) return;
+    const night = this.darkness > 0.5, p = this.player, rng = this.rng, w = this.world;
+    this.spawnT = night ? 0.45 : 0.8;
+    if (!p.alive) return;
+    let count = 0;
+    for (const m of this.mobs) if (!m.minion) count++;
+    const cap = this.boss ? 3 : (night ? 18 : 11) + p.biome * 2;
+    if (count >= cap) return;
+    // Spawn out of sight, never inside the safe zone or a dormant arena.
+    const a = rng() * TAU, r = 880 + rng() * 220;
+    const x = p.x + Math.cos(a) * r, y = p.y + Math.sin(a) * r;
+    if (x * x + y * y < (HOME_RADIUS + 280) ** 2) return;
+    for (const l of w.lairs) if (dist2(x, y, l.x, l.y) < l.r * l.r) return;
+    const type = pick(BIOME_MOBS[BIOME_IDS[w.biomeIdx(x, y)]], rng());
+    const def = MOBS[type];
+    if (!def.flying && w.liquidAt(x, y)) return;
+    const n = def.pack ? 1 + Math.floor(rng() * def.pack) : 1;
+    for (let k = 0; k < n; k++) {
+      this.spawnMob(type, x + (rng() - 0.5) * 90 * k, y + (rng() - 0.5) * 90 * k, { elite: k === 0 && rng() < (night ? 0.16 : 0.05) });
+    }
+  }
+
+  // ---------------------------------------------------------------- guardians
+
+  summonBoss(lair) {
+    if (this.boss) return false;
+    this.boss = spawnBoss(this, lair);
+    this.emit('bossStart', lair.x, lair.y, { name: this.boss.name, title: this.boss.def.title, color: this.boss.def.color });
+    return true;
+  }
+
+  despawnBoss() {
+    if (!this.boss) return;
+    this.boss = null;
+    this.ebullets.length = 0; this.hazards.length = 0;
+    for (const m of this.mobs) if (m.minion) m.dead = true;
+    this.emit('bossGone', 0, 0);
+  }
+
+  // ---------------------------------------------------------------- workshop
+
+  upgradeCost(id) {
+    const d = UPGRADES.find((u) => u.id === id);
+    return this.upg[id] >= d.max ? Infinity : Math.round(d.base * Math.pow(d.grow, this.upg[id]));
+  }
+
+  buyUpgrade(id) {
+    const cost = this.upgradeCost(id);
+    if (!(this.inv.essence >= cost)) return false;
+    this.inv.essence -= cost;
+    this.upg[id]++;
+    if (id === 'hp') this.player.hp += 20;
+    this.st = this.derived();
+    this.emit('upgrade', this.player.x, this.player.y);
+    return true;
+  }
+
+  canCraft(id) {
+    const w = WEAPONS.find((x) => x.id === id);
+    if (!w || !w.cost || this.unlocked[id] || (w.core && !this.cores[w.core])) return false;
+    for (const k in w.cost) if (!(this.inv[k] >= w.cost[k])) return false;
+    return true;
+  }
+
+  craft(id) {
+    if (!this.canCraft(id)) return false;
+    const i = WEAPONS.findIndex((x) => x.id === id);
+    for (const k in WEAPONS[i].cost) this.inv[k] -= WEAPONS[i].cost[k];
+    this.unlocked[id] = true;
+    this.player.weapon = i;
+    this.emit('craft', this.player.x, this.player.y);
+    return true;
+  }
+
+  // ---------------------------------------------------------------- persistence
+
+  serialize() {
+    const p = this.player;
+    return {
+      v: 1, seed: this.seed, time: this.time,
+      player: { x: p.x, y: p.y, hp: p.hp, weapon: p.weapon, seedSel: p.seedSel },
+      inv: { ...this.inv }, upg: { ...this.upg }, unlocked: { ...this.unlocked }, cores: { ...this.cores },
+      bossKills: { ...this.bossKills }, stats: { ...this.stats }, won: this.won,
+      crops: [...this.crops.values()].map((c) => [c.tx, c.ty, c.type, c.t0, c.dur]),
+    };
+  }
+
+  applySave(s) {
+    const p = this.player;
+    this.time = s.time;
+    Object.assign(this.inv, s.inv);
+    Object.assign(this.upg, s.upg);
+    Object.assign(this.unlocked, s.unlocked);
+    Object.assign(this.cores, s.cores);
+    Object.assign(this.bossKills, s.bossKills);
+    Object.assign(this.stats, s.stats);
+    this.won = !!s.won;
+    p.invuln = 2;
+    p.weapon = WEAPONS[s.player.weapon] && this.unlocked[WEAPONS[s.player.weapon].id] ? s.player.weapon : 0;
+    if (CROPS[s.player.seedSel]) p.seedSel = s.player.seedSel;
+    // A save taken at the moment of death resumes at the beacon.
+    if (s.player.hp > 0) { p.x = s.player.x; p.y = s.player.y; p.hp = s.player.hp; }
+    for (const [tx, ty, type, t0, dur] of s.crops) {
+      if (CROPS[type]) this.crops.set(tx + ',' + ty, { type, tx, ty, x: (tx + 0.5) * TILE, y: (ty + 0.5) * TILE, t0, dur });
+    }
+  }
+}
+
+return { newInput, Game };
+})();
+__modules['sprites'] = (() => {
+// Procedural "stained glass" art: every shape is a mosaic of flat facets held by dark lead lines.
+const { TAU, mulberry32 } = __modules['util'];
+const { BOSSES, NODES, WEAPONS } = __modules['config'];
+const { LASER_LEN, LASER_W } = __modules['bosses'];
+
+const LEAD = '#0d0b18';
+
+function rgba(hex, a) {
+  const n = parseInt(hex.slice(1), 16);
+  return `rgba(${n >> 16},${(n >> 8) & 255},${n & 255},${a})`;
+}
+
+// Mix a hex colour with white (f > 0) or black (f < 0).
+function shade(hex, f) {
+  const n = parseInt(hex.slice(1), 16), to = f < 0 ? 0 : 255, k = Math.abs(f);
+  const c = (v) => Math.round(v + (to - v) * k);
+  return `rgb(${c(n >> 16)},${c((n >> 8) & 255)},${c(n & 255)})`;
+}
+
+// ------------------------------------------------------------------ facet primitives
+
+function poly(g, pts, fill, lw = 2) {
+  g.beginPath();
+  g.moveTo(pts[0], pts[1]);
+  for (let i = 2; i < pts.length; i += 2) g.lineTo(pts[i], pts[i + 1]);
+  g.closePath();
+  if (fill) { g.fillStyle = fill; g.fill(); }
+  if (lw) { g.lineWidth = lw; g.strokeStyle = LEAD; g.stroke(); }
+}
+
+function dot(g, x, y, r, fill, lw = 1.5) {
+  g.beginPath();
+  g.arc(x, y, r, 0, TAU);
+  if (fill) { g.fillStyle = fill; g.fill(); }
+  if (lw) { g.lineWidth = lw; g.strokeStyle = LEAD; g.stroke(); }
+}
+
+function ringPts(cx, cy, n, rad, rot = 0) {
+  const pts = new Array(n * 2);
+  for (let i = 0; i < n; i++) {
+    const a = rot + (i / n) * TAU, r = typeof rad === 'number' ? rad : rad(i);
+    pts[i * 2] = cx + Math.cos(a) * r;
+    pts[i * 2 + 1] = cy + Math.sin(a) * r;
+  }
+  return pts;
+}
+
+// Outline cut into triangles around a hub point, cycling through the palette.
+function gem(g, pts, hx, hy, cols, lw = 2) {
+  const n = pts.length / 2;
+  for (let i = 0; i < n; i++) {
+    const j = (i + 1) % n;
+    poly(g, [hx, hy, pts[i * 2], pts[i * 2 + 1], pts[j * 2], pts[j * 2 + 1]], cols[i % cols.length], lw);
+  }
+}
+
+// Faceted disc or star: rad is a radius or a function of the vertex index.
+function fan(g, cx, cy, n, rad, rot, cols, lw = 2) {
+  gem(g, ringPts(cx, cy, n, rad, rot), cx, cy, cols, lw);
+}
+
+// Shard growing from (x,y) along angle a, split lengthwise into a light and a dark facet.
+function kite(g, x, y, a, len, wd, c1, c2, lw = 2, waist = 0.4) {
+  const cx = Math.cos(a), cy = Math.sin(a), tx = x + cx * len, ty = y + cy * len;
+  const mx = x + cx * len * waist, my = y + cy * len * waist;
+  poly(g, [x, y, mx - cy * wd, my + cx * wd, tx, ty], c1, lw);
+  poly(g, [x, y, mx + cy * wd, my - cx * wd, tx, ty], c2, lw);
+}
+
+// Shard centred on (x,y); len and wd are half extents.
+function diamond(g, x, y, a, len, wd, c1, c2, lw = 2) {
+  const cx = Math.cos(a) * len, cy = Math.sin(a) * len, px = -Math.sin(a) * wd, py = Math.cos(a) * wd;
+  poly(g, [x - cx, y - cy, x + px, y + py, x + cx, y + cy], c1, lw);
+  poly(g, [x - cx, y - cy, x - px, y - py, x + cx, y + cy], c2, lw);
+}
+
+function eye(g, x, y, s, face) {
+  dot(g, x, y, s, '#ffffff', 1.2);
+  dot(g, x + Math.cos(face) * s * 0.35, y + Math.sin(face) * s * 0.35, s * 0.52, LEAD, 0);
+}
+
+// ------------------------------------------------------------------ cached sprites
+
+const glows = new Map();
+
+// Soft radial glow in the given hex colour, used for additive halos and for night lights.
+function glowSprite(color) {
+  let c = glows.get(color);
+  if (!c) {
+    c = document.createElement('canvas');
+    c.width = c.height = 128;
+    const g = c.getContext('2d'), gr = g.createRadialGradient(64, 64, 0, 64, 64, 64);
+    gr.addColorStop(0, rgba(color, 1));
+    gr.addColorStop(0.3, rgba(color, 0.5));
+    gr.addColorStop(0.65, rgba(color, 0.14));
+    gr.addColorStop(1, rgba(color, 0));
+    g.fillStyle = gr;
+    g.fillRect(0, 0, 128, 128);
+    glows.set(color, c);
+  }
+  return c;
+}
+
+const sprites = new Map();
+let spriteRes = 2;
+
+function setSpriteRes(res) {
+  if (res === spriteRes) return;
+  spriteRes = res;
+  sprites.clear();
+}
+
+function hashStr(s) {
+  let h = 2166136261;
+  for (let i = 0; i < s.length; i++) h = Math.imul(h ^ s.charCodeAt(i), 16777619);
+  return h >>> 0;
+}
+
+// Static art is drawn once into an offscreen canvas centred on (half, half).
+function sprite(key, half, draw) {
+  let c = sprites.get(key);
+  if (!c) {
+    c = document.createElement('canvas');
+    c.width = c.height = Math.ceil(half * 2 * spriteRes);
+    c.half = half;
+    const g = c.getContext('2d');
+    g.scale(spriteRes, spriteRes);
+    g.translate(half, half);
+    g.lineJoin = 'round';
+    draw(g, mulberry32(hashStr(key)));
+    sprites.set(key, c);
+  }
+  return c;
+}
+
+function drawSprite(g, c, x, y, rot = 0, scale = 1) {
+  const h = c.half * scale;
+  if (rot) {
+    g.save();
+    g.translate(x, y);
+    g.rotate(rot);
+    g.drawImage(c, -h, -h, h * 2, h * 2);
+    g.restore();
+  } else g.drawImage(c, x - h, y - h, h * 2, h * 2);
+}
+
+// ------------------------------------------------------------------ resource nodes
+
+function radii(n, f) {
+  const rs = [];
+  for (let i = 0; i < n; i++) rs.push(f(i));
+  return rs;
+}
+
+function shardCluster(g, R, rnd, cols, n, width = 0.2) {
+  for (let i = 0; i < n; i++) {
+    const a = (i / n) * TAU + rnd() * 0.5;
+    kite(g, 0, 0, a, R * (0.65 + rnd() * 0.38), R * (width * 0.8 + rnd() * width * 0.4), cols[0], cols[1], 1.8, 0.45);
+  }
+  fan(g, 0, 0, 6, R * 0.2, rnd() * TAU, [cols[2], cols[0]], 1.5);
+}
+
+function conifer(g, R, rnd, outer, mid, inner) {
+  const rot = rnd() * TAU;
+  fan(g, 0, 0, 16, (i) => R * (i % 2 ? 0.58 : 1), rot, outer);
+  fan(g, 0, 0, 12, (i) => R * (i % 2 ? 0.36 : 0.66), rot + 0.3, mid);
+  fan(g, 0, 0, 8, (i) => R * (i % 2 ? 0.16 : 0.34), rot + 0.6, inner, 1.5);
+}
+
+function shrub(g, R, rnd, cols, berry) {
+  const rs = radii(7, () => R * (0.8 + rnd() * 0.25));
+  fan(g, 0, 0, 7, (i) => rs[i], rnd() * TAU, cols);
+  for (let i = 0; i < 3; i++) {
+    const a = rnd() * TAU, d = R * (0.3 + rnd() * 0.3);
+    dot(g, Math.cos(a) * d, Math.sin(a) * d, 3.2, berry, 1.2);
+  }
+}
+
+function boulder(g, R, rnd, cols, fleck) {
+  const rs = radii(7, () => R * (0.75 + rnd() * 0.3));
+  const hx = (rnd() - 0.5) * R * 0.4, hy = (rnd() - 0.5) * R * 0.4;
+  gem(g, ringPts(0, 0, 7, (i) => rs[i], rnd() * TAU), hx, hy, cols);
+  for (let i = 0; i < 2; i++) {
+    const x = (rnd() - 0.5) * R * 0.9, y = (rnd() - 0.5) * R * 0.9;
+    poly(g, [x, y, x + 5, y + 2, x + 1, y + 6], fleck, 1);
+  }
+}
+
+const NODE_ART = {
+  tree(g, R, rnd) {
+    const rs = radii(9, (i) => R * (i % 2 ? 1 : 0.8) * (0.92 + rnd() * 0.12));
+    fan(g, 0, 0, 9, (i) => rs[i], rnd() * TAU, ['#1f8a5a', '#2fae6e', '#17704a']);
+    fan(g, 0, 0, 6, R * 0.5, rnd() * TAU, ['#b6f08a', '#8fe07a', '#d4f8a4'], 1.5);
+    fan(g, 0, 0, 6, R * 0.16, 0, ['#8a5a36', '#6e4527'], 1.5);
+  },
+  pine: (g, R, rnd) => conifer(g, R, rnd, ['#14604f', '#1b7a62'], ['#229277', '#2aa888'], ['#49c9a0', '#6fe0b8']),
+  snowpine: (g, R, rnd) => conifer(g, R, rnd, ['#4f9ab8', '#3f84a2'], ['#ffffff', '#dff4ff'], ['#9fd8f0', '#c8ecf8']),
+  bush: (g, R, rnd) => shrub(g, R, rnd, ['#8fd35a', '#6dbb48', '#a9e36e'], '#8ef5ff'),
+  frostbush: (g, R, rnd) => shrub(g, R, rnd, ['#c9d8ff', '#aabdf2', '#e3ecff'], '#b48cff'),
+  rock: (g, R, rnd) => boulder(g, R, rnd, ['#9aa0b8', '#7c829c', '#b9bfd6', '#666b85', '#a7adc6'], '#ffd27a'),
+  obsidian: (g, R, rnd) => boulder(g, R, rnd, ['#3a2a52', '#553a78', '#2a1d3d', '#6f4d9a', '#442f63'], '#ff7ae0'),
+  crystal: (g, R, rnd) => shardCluster(g, R, rnd, ['#8ef5ff', '#35bfe0', '#eaffff'], 5),
+  ice: (g, R, rnd) => shardCluster(g, R, rnd, ['#e8fbff', '#9fd8f0', '#ffffff'], 6),
+  magma: (g, R, rnd) => shardCluster(g, R, rnd, ['#ffc24a', '#ff6a2a', '#fff0a0'], 5),
+  deadtree: (g, R, rnd) => shardCluster(g, R, rnd, ['#c8b8a4', '#8a7a6a', '#e0d4c4'], 6, 0.1),
+  cactus(g, R, rnd) {
+    fan(g, 0, 0, 12, (i) => R * (i % 2 ? 0.72 : 1), rnd() * TAU, ['#5fbf6a', '#3f9c58']);
+    fan(g, 0, 0, 5, R * 0.3, 0, ['#ff8fc8', '#ffb3da'], 1.5);
+  },
+  bloom(g, R, rnd) {
+    fan(g, 0, 0, 16, (i) => R * (i % 2 ? 0.45 : 1), rnd() * TAU, ['#e0304a', '#ff5a6a']);
+    fan(g, 0, 0, 6, R * 0.3, 0, ['#ffe27a', '#fff2b0'], 1.5);
+  },
+};
+
+function nodeSprite(n) {
+  const R = NODES[n.type].vr;
+  return sprite(`node:${n.type}:${n.variant}`, R * 1.15 + 4, (g, rnd) => NODE_ART[n.type](g, R, rnd));
+}
+
+const stumpSprite = () => sprite('stump', 12, (g) => fan(g, 0, 0, 6, 7, 0.3, ['#3a3040', '#2a2230'], 1.5));
+
+// ------------------------------------------------------------------ crops, icons, landmarks
+
+const LEAVES = { berry: ['#58c063', '#8fe07a'], pepper: ['#4fa64f', '#7fc95a'], frost: ['#7fb8c9', '#a9dcea'] };
+
+// stage 0..3, where 3 is ripe and carries fruit
+function cropSprite(type, stage) {
+  return sprite(`crop:${type}:${stage}`, 26, (g) => {
+    fan(g, 0, 0, 6, 20, 0.26, ['#5b3a26', '#4a2e1e', '#6a452d'], 1.5);
+    const n = 3 + stage, R = 6 + stage * 3.4;
+    fan(g, 0, 0, n * 2, (i) => R * (i % 2 ? 0.42 : 1), 0.5, LEAVES[type], 1.5);
+    if (stage < 3) return;
+    for (let i = 0; i < 3; i++) {
+      const a = i * (TAU / 3) + 0.3, x = Math.cos(a) * 8.5, y = Math.sin(a) * 8.5;
+      if (type === 'berry') { dot(g, x, y, 4.4, '#8ef5ff', 1.4); dot(g, x - 1.2, y - 1.4, 1.3, '#ffffff', 0); }
+      else if (type === 'pepper') kite(g, x * 0.5, y * 0.5, a, 11, 3.6, '#ff8a4a', '#e0401a', 1.4);
+      else fan(g, x, y, 8, (k) => (k % 2 ? 2 : 5.4), a, ['#ffffff', '#c9b5ff'], 1.2);
+    }
+  });
+}
+
+function seedArt(g, s, color) {
+  poly(g, [0, -0.46 * s, 0.3 * s, 0.08 * s, 0.16 * s, 0.42 * s, -0.16 * s, 0.42 * s, -0.3 * s, 0.08 * s], '#ecd6a4', 1.5);
+  poly(g, [0, -0.2 * s, 0.13 * s, 0.1 * s, 0, 0.3 * s, -0.13 * s, 0.1 * s], color, 1);
+}
+
+const ICON_ART = {
+  essence(g, s) {
+    fan(g, 0, 0, 8, (i) => s * (i % 2 ? 0.2 : 0.5), -Math.PI / 2, ['#d9b8ff', '#9a6be0'], 1.5);
+    dot(g, 0, 0, s * 0.1, '#ffffff', 0);
+  },
+  wood(g, s) {
+    poly(g, [-0.46 * s, -0.04 * s, 0.3 * s, -0.42 * s, 0.46 * s, -0.2 * s, -0.3 * s, 0.18 * s], '#d19a5b', 1.5);
+    poly(g, [-0.4 * s, 0.3 * s, 0.34 * s, -0.04 * s, 0.47 * s, 0.18 * s, -0.27 * s, 0.5 * s], '#a87440', 1.5);
+  },
+  ore(g, s) {
+    gem(g, ringPts(0, 0, 6, s * 0.47, 0.3), -s * 0.08, -s * 0.08, ['#c3cae0', '#8e95b0', '#e3e8f5', '#767c96'], 1.5);
+    poly(g, [-s * 0.05, s * 0.02, s * 0.18, s * 0.08, s * 0.04, s * 0.24], '#ffd27a', 1);
+  },
+  crystal(g, s) {
+    gem(g, [0, -0.5 * s, 0.3 * s, -0.06 * s, 0, 0.5 * s, -0.3 * s, -0.06 * s], 0, -0.08 * s, ['#8ef5ff', '#35bfe0', '#6fe0f5', '#eaffff'], 1.5);
+  },
+  seedBerry: (g, s) => seedArt(g, s, '#35bfe0'),
+  seedPepper: (g, s) => seedArt(g, s, '#ff6a3a'),
+  seedFrost: (g, s) => seedArt(g, s, '#a98cff'),
+  berry(g, s) {
+    poly(g, [-0.05 * s, -0.5 * s, 0.25 * s, -0.36 * s, 0.02 * s, -0.2 * s], '#58c063', 1.2);
+    for (const [x, y] of [[-0.2, -0.05], [0.2, -0.02], [0, 0.26]]) {
+      dot(g, x * s, y * s, s * 0.2, '#8ef5ff', 1.4);
+      dot(g, (x - 0.06) * s, (y - 0.07) * s, s * 0.06, '#ffffff', 0);
+    }
+  },
+  pepper(g, s) {
+    poly(g, [-0.44 * s, -0.1 * s, -0.1 * s, -0.34 * s, 0.3 * s, -0.14 * s, 0.47 * s, 0.32 * s, 0.1 * s, 0.14 * s, -0.2 * s, 0.14 * s], '#ff6a3a', 1.5);
+    poly(g, [-0.1 * s, -0.34 * s, 0.3 * s, -0.14 * s, 0.1 * s, 0.14 * s], '#ff9a5a', 0);
+    poly(g, [-0.5 * s, -0.3 * s, -0.28 * s, -0.36 * s, -0.34 * s, -0.08 * s], '#58c063', 1.2);
+  },
+  frost(g, s) { fan(g, 0, 0, 12, (i) => s * (i % 2 ? 0.2 : 0.5), -Math.PI / 2, ['#f0eaff', '#c9b5ff'], 1.5); },
+  heart(g, s) {
+    gem(g, [0, 0.46 * s, -0.47 * s, -0.04 * s, -0.3 * s, -0.42 * s, 0, -0.2 * s, 0.3 * s, -0.42 * s, 0.47 * s, -0.04 * s], 0, 0.02 * s,
+      ['#e03a5a', '#ff5d7a', '#ff8ba0', '#ff7089', '#ff5d7a', '#c82a4a'], 1.5);
+  },
+};
+
+function iconSprite(kind) {
+  return sprite(`icon:${kind}`, 15, (g) => {
+    if (kind.startsWith('core:')) {
+      const def = BOSSES[kind.slice(5)];
+      fan(g, 0, 0, 6, 12.5, 0.52, [def.color, shade(def.color, -0.35), shade(def.color, 0.35)], 1.5);
+      fan(g, 0, 0, 6, 5.5, 0, ['#ffffff', def.color2], 1.2);
+    } else if (kind.startsWith('weapon:')) weaponArt(g, kind.slice(7));
+    else ICON_ART[kind](g, 24);
+  });
+}
+
+function weaponArt(g, id) {
+  const c = WEAPONS.find((w) => w.id === id).color, d = shade(c, -0.35);
+  if (id === 'shard') diamond(g, 0, 0, -0.7, 12, 4.6, c, d);
+  else if (id === 'fan') for (let i = -1; i <= 1; i++) kite(g, 0, 10, -Math.PI / 2 + i * 0.52, 20, 3.4, c, d, 1.5);
+  else if (id === 'needle') for (let i = -1; i <= 1; i++) diamond(g, i * 6, -i * 2.5, -1.05, 11, 1.9, c, d, 1.2);
+  else if (id === 'prism') {
+    poly(g, [0, -11, 11, 8, -11, 8], c, 1.6);
+    poly(g, [0, -11, 0, 8, -11, 8], d, 1.6);
+    poly(g, [-12, 3, 12, -4, 12, -1, -12, 6], '#ffffff', 1);
+  } else if (id === 'comet') {
+    kite(g, 4, -4, 2.36, 16, 5, d, shade(c, -0.55), 1.5, 0.3);
+    fan(g, 4, -4, 6, 7.5, 0, [c, shade(c, 0.4)], 1.5);
+  } else {
+    for (let i = 0; i < 3; i++) {
+      const a = -Math.PI / 2 + i * (TAU / 3);
+      diamond(g, Math.cos(a) * 6.5, Math.sin(a) * 6.5, a, 5.6, 3.2, c, d, 1.5);
+    }
+  }
+}
+
+function altarSprite(id) {
+  return sprite(`altar:${id}`, 100, (g) => {
+    const def = BOSSES[id];
+    for (let i = 0; i < 8; i++) {
+      const a = i * (TAU / 8) + TAU / 16;
+      diamond(g, Math.cos(a) * 80, Math.sin(a) * 80, a, 16, 7, '#565070', '#34304a');
+    }
+    fan(g, 0, 0, 16, (i) => (i % 2 ? 52 : 64), 0, ['#2e2a40', '#3d3856']);
+    fan(g, 0, 0, 8, 42, TAU / 16, [def.color, shade(def.color, -0.4)]);
+    fan(g, 0, 0, 8, (i) => (i % 2 ? 12 : 25), 0, [def.color2, '#ffffff'], 1.5);
+  });
+}
+
+// The home beacon is a rose window laid into the ground.
+function beaconSprite() {
+  return sprite('beacon', 106, (g) => {
+    fan(g, 0, 0, 16, (i) => (i % 2 ? 92 : 101), 0, ['#243a8f', '#3a2a7a', '#1f5a8a', '#4a2f8f']);
+    fan(g, 0, 0, 12, (i) => (i % 2 ? 62 : 73), TAU / 24, ['#ffd27a', '#e0a03c', '#fff0b0']);
+    fan(g, 0, 0, 8, 45, 0, ['#6ff0ff', '#35bfe0', '#eaffff', '#8fb4ff']);
+    fan(g, 0, 0, 8, (i) => (i % 2 ? 12 : 25), TAU / 16, ['#ffffff', '#ffe9a8'], 1.5);
+  });
+}
+
+// ------------------------------------------------------------------ player
+
+// Drawn at the origin; the caller translates to the player's position.
+function drawPlayer(g, p, t, weaponColor) {
+  const sp = Math.hypot(p.vx, p.vy);
+  const back = sp > 20 ? Math.atan2(-p.vy, -p.vx) : p.aim + Math.PI;
+  const len = 15 + Math.min(14, sp * 0.04) + (p.dashT > 0 ? 12 : 0);
+  kite(g, Math.cos(back) * 3, Math.sin(back) * 3, back + Math.sin(t * 9) * 0.22, len, 9, '#2f6bff', '#1b3fae', 2, 0.3);
+  g.rotate(p.aim);
+  poly(g, [4, 5, 27, 3.5, 32, 6.5, 27, 9.5, 4, 10], weaponColor);
+  poly(g, [5, -12, 15, -8, 8, -3], '#ffd27a', 1.5);
+  gem(g, [-13, 0, -6, -11, 7, -10, 13, 0, 7, 10, -6, 11], 0, 0, ['#3f7bff', '#6fa0ff', '#2f6bff', '#1f49c9', '#16389e', '#2a58e0']);
+  fan(g, 1, 0, 6, 6.5, 0, ['#fff2c8', '#ffd98a']);
+  poly(g, [3, -3, 8.5, 0, 3, 3], '#6ff0ff', 1.2);
+}
+
+// ------------------------------------------------------------------ creatures
+
+function legs(g, r, sx, sy, reach, lw) {
+  g.lineWidth = lw;
+  g.strokeStyle = LEAD;
+  g.beginPath();
+  for (let i = -1; i <= 1; i++) {
+    g.moveTo(i * r * sx, -r * sy); g.lineTo(i * r * (sx + 0.12), -r * reach);
+    g.moveTo(i * r * sx, r * sy); g.lineTo(i * r * (sx + 0.12), r * reach);
+  }
+  g.stroke();
+}
+
+// Each function draws around the origin for a creature of nominal radius r.
+const MOB_ART = {
+  slime(g, m, r) {
+    const hop = m.state === 'hop', w = Math.sin(m.anim * (hop ? 17 : 5)) * (hop ? 0.14 : 0.05);
+    g.scale(1 + w, 1 - w);
+    fan(g, 0, 0, 8, (i) => r * (i % 2 ? 0.96 : 1.06), 0.2, ['#ff7aa8', '#e0528a', '#ffa8c8', '#c03a70']);
+    fan(g, -r * 0.22, -r * 0.26, 5, r * 0.28, 0.4, ['#ffe0ec', '#ffc8dc'], 1);
+    const ex = Math.cos(m.face) * r * 0.34, ey = Math.sin(m.face) * r * 0.34;
+    const px = -Math.sin(m.face) * r * 0.3, py = Math.cos(m.face) * r * 0.3;
+    eye(g, ex + px, ey + py, 3.4, m.face);
+    eye(g, ex - px, ey - py, 3.4, m.face);
+  },
+  wasp(g, m, r) {
+    g.rotate(m.face);
+    const flap = Math.sin(m.anim * 45) * 0.45, alpha = g.globalAlpha;
+    g.globalAlpha = alpha * 0.75;
+    poly(g, [0, -r * 0.2, -r * 0.5, -r * (1.25 + flap * 0.4), -r * 1.2, -r * (0.7 + flap * 0.5)], '#d4f3ff', 1.2);
+    poly(g, [0, r * 0.2, -r * 0.5, r * (1.25 + flap * 0.4), -r * 1.2, r * (0.7 + flap * 0.5)], '#d4f3ff', 1.2);
+    g.globalAlpha = alpha;
+    poly(g, [-r * 1.5, 0, -r * 0.9, -r * 0.3, -r * 0.9, r * 0.3], '#2a1d10', 1.5);
+    poly(g, [-r * 1.0, 0, -r * 0.3, -r * 0.62, r * 0.25, 0], '#ffd23a');
+    poly(g, [-r * 1.0, 0, -r * 0.3, r * 0.62, r * 0.25, 0], '#e09a1a');
+    poly(g, [-r * 0.72, -r * 0.25, -r * 0.5, -r * 0.44, -r * 0.5, r * 0.44, -r * 0.72, r * 0.25], '#2a1d10', 0);
+    fan(g, r * 0.5, 0, 6, r * 0.42, 0, ['#ffb52a', '#ffe07a']);
+    dot(g, r * 0.72, -r * 0.18, 1.8, '#ff4a5a', 0);
+    dot(g, r * 0.72, r * 0.18, 1.8, '#ff4a5a', 0);
+  },
+  spore(g, m, r) {
+    const aim = m.state === 'aim' ? 1 - m.t / 0.42 : 0, k = 1 + Math.sin(m.anim * 3) * 0.04 + aim * 0.16;
+    fan(g, 0, 0, 9, (i) => r * k * (i % 2 ? 0.94 : 1.08), m.seed, ['#c26bff', '#9a45e0', '#d98cff']);
+    for (let i = 0; i < 4; i++) {
+      const a = m.seed + i * (TAU / 4) + 0.4;
+      dot(g, Math.cos(a) * r * 0.62, Math.sin(a) * r * 0.62, r * 0.14, '#ffe6ff', 1);
+    }
+    fan(g, 0, 0, 6, r * (0.32 + aim * 0.12), -m.seed, aim > 0 ? ['#ffffff', '#ffd0ff'] : ['#ffd0ff', '#f0a6ff'], 1.5);
+  },
+  wolf(g, m, r) {
+    g.rotate(m.face);
+    const tail = Math.sin(m.anim * 9) * r * 0.3;
+    poly(g, [-r * 1.0, -r * 0.22, -r * 1.85, tail, -r * 1.0, r * 0.22], '#7474c0');
+    gem(g, [-r * 1.15, 0, -r * 0.5, -r * 0.72, r * 0.5, -r * 0.6, r * 0.9, 0, r * 0.5, r * 0.6, -r * 0.5, r * 0.72], 0, 0,
+      ['#9a9ae0', '#b6b6f0', '#8585d0', '#6a6ab8', '#5c5ca8', '#7474c0']);
+    poly(g, [r * 0.5, -r * 0.34, r * 0.95, -r * 0.62, r * 0.45, -r * 0.9], '#5c5ca8', 1.5);
+    poly(g, [r * 0.5, r * 0.34, r * 0.95, r * 0.62, r * 0.45, r * 0.9], '#5c5ca8', 1.5);
+    poly(g, [r * 0.55, -r * 0.46, r * 1.6, 0, r * 0.55, r * 0.46], m.state === 'windup' ? '#ffffff' : '#d4d4ff');
+    dot(g, r * 0.95, -r * 0.2, 2.2, '#ff4a5a', 0);
+    dot(g, r * 0.95, r * 0.2, 2.2, '#ff4a5a', 0);
+  },
+  scorp(g, m, r) {
+    g.rotate(m.face);
+    const wag = Math.sin(m.anim * 5) * r * 0.22;
+    legs(g, r, 0.45, 0.4, 1.05, 2.5);
+    fan(g, -r * 1.05, wag * 0.4, 6, r * 0.36, 0, ['#6a2040', '#8a2f52']);
+    fan(g, -r * 1.55, wag * 0.8, 6, r * 0.3, 0, ['#6a2040', '#8a2f52']);
+    poly(g, [-r * 1.75, wag - r * 0.2, -r * 2.3, wag * 1.3, -r * 1.75, wag + r * 0.2], m.state === 'aim' ? '#ffffff' : '#c86aff');
+    poly(g, [r * 0.6, -r * 0.3, r * 1.25, -r * 0.85, r * 1.75, -r * 0.5, r * 1.3, -r * 0.4], '#ffd27a');
+    poly(g, [r * 0.6, r * 0.3, r * 1.25, r * 0.85, r * 1.75, r * 0.5, r * 1.3, r * 0.4], '#ffd27a');
+    fan(g, -r * 0.5, 0, 6, r * 0.55, 0.5, ['#8a2f52', '#6a2040', '#a84068']);
+    fan(g, r * 0.3, 0, 6, r * 0.62, 0, ['#a84068', '#8a2f52', '#6a2040']);
+    dot(g, r * 0.7, -r * 0.2, 2, '#fff2b0', 0);
+    dot(g, r * 0.7, r * 0.2, 2, '#fff2b0', 0);
+  },
+  beetle(g, m, r) {
+    g.rotate(m.face);
+    const lit = m.state === 'fuse' && Math.sin(m.anim * 40) > 0;
+    legs(g, r, 0.5, 0.5, 1.15, 2.2);
+    fan(g, r * 0.95, 0, 6, r * 0.4, 0, ['#12303a', '#1f4a58']);
+    poly(g, [-r * 1.05, 0, -r * 0.6, -r * 0.85, r * 0.45, -r * 0.8, r * 0.85, 0], lit ? '#fff2b0' : '#2fa8b8');
+    poly(g, [-r * 1.05, 0, -r * 0.6, r * 0.85, r * 0.45, r * 0.8, r * 0.85, 0], lit ? '#ffe07a' : '#1f8898');
+    poly(g, [-r * 0.4, -r * 0.5, r * 0.3, -r * 0.46, r * 0.1, -r * 0.14], lit ? '#ffffff' : '#7fe0ea', 1);
+    poly(g, [-r * 0.9, 0, r * 0.8, -r * 0.08, r * 0.8, r * 0.08], '#ffb03a', 0);
+  },
+  wisp(g, m, r) {
+    const bob = Math.sin(m.anim * 3) * 2;
+    for (let i = 0; i < 3; i++) {
+      const a = m.anim * 2.2 + i * (TAU / 3);
+      diamond(g, Math.cos(a) * r * 1.5, bob + Math.sin(a) * r * 1.5, a + 1.2, r * 0.38, r * 0.16, '#d6d0ff', '#8a7aff', 1.2);
+    }
+    gem(g, [0, -r * 1.2 + bob, r * 0.62, bob, 0, r * 1.2 + bob, -r * 0.62, bob], 0, bob - r * 0.15, ['#8a7aff', '#3a2ab0', '#5a4ae0', '#b0a6ff']);
+    dot(g, -r * 0.18, bob - r * 0.1, 2, '#ffffff', 0);
+    dot(g, r * 0.18, bob - r * 0.1, 2, '#ffffff', 0);
+  },
+  yeti(g, m, r) {
+    g.rotate(m.face);
+    const slam = m.state === 'slam' ? 1 - m.t / 0.7 : 0, sw = Math.sin(m.anim * 4) * r * 0.08;
+    const fx = r * (0.55 + slam * 0.35), fs = r * (0.42 + slam * 0.2);
+    fan(g, fx + sw, -r * 0.95, 6, fs, 0.3, ['#34507c', '#263f66', '#4a6a9a']);
+    fan(g, fx - sw, r * 0.95, 6, fs, 0.3, ['#34507c', '#263f66', '#4a6a9a']);
+    fan(g, 0, 0, 8, (i) => r * (i % 2 ? 0.95 : 1.05), 0.2, ['#4a6a9a', '#34507c', '#6a8abc', '#263f66']);
+    poly(g, [r * 0.35, -r * 0.34, r * 1.05, -r * 0.7, r * 0.6, -r * 0.1], '#f4fbff');
+    poly(g, [r * 0.35, r * 0.34, r * 1.05, r * 0.7, r * 0.6, r * 0.1], '#f4fbff');
+    fan(g, r * 0.3, 0, 6, r * 0.42, 0, ['#263f66', '#1c3052']);
+    dot(g, r * 0.5, -r * 0.14, 2.4, '#6ff0ff', 0);
+    dot(g, r * 0.5, r * 0.14, 2.4, '#6ff0ff', 0);
+  },
+  magmite(g, m, r) {
+    const rnd = mulberry32((m.seed * 1000) | 0), rs = radii(7, () => r * (0.85 + rnd() * 0.3));
+    const pts = ringPts(0, 0, 7, (i) => rs[i], m.seed), hx = r * 0.1, hy = -r * 0.1;
+    gem(g, pts, hx, hy, ['#ff8a2a', '#ffb03a', '#e0601a', '#ffd24a']);
+    g.strokeStyle = rgba('#5a1a10', 0.6 + 0.4 * Math.sin(m.anim * 6));
+    g.lineWidth = 2.5;
+    g.beginPath();
+    for (let i = 0; i < 3; i++) {
+      const k = (i * 2 + 1) % 7;
+      g.moveTo(hx, hy);
+      g.lineTo(pts[k * 2] * 0.8, pts[k * 2 + 1] * 0.8);
+    }
+    g.stroke();
+    const ex = Math.cos(m.face), ey = Math.sin(m.face);
+    dot(g, ex * r * 0.4 - ey * r * 0.25, ey * r * 0.4 + ex * r * 0.25, 2.8, '#ffffff', 1.2);
+    dot(g, ex * r * 0.4 + ey * r * 0.25, ey * r * 0.4 - ex * r * 0.25, 2.8, '#ffffff', 1.2);
+  },
+  sentinel(g, m, r) {
+    const firing = m.state === 'fire', rot = m.anim * (firing ? 4 : 1.2);
+    for (let i = 0; i < 4; i++) kite(g, 0, 0, rot + i * (TAU / 4), r * 1.6, r * 0.3, '#b8b0a8', '#8a827a');
+    fan(g, 0, 0, 8, r, 0.39, ['#e8e0d8', '#c8c0b8']);
+    fan(g, 0, 0, 8, r * 0.55, 0, firing ? ['#ffe04a', '#ff8a3a'] : ['#ff4a4a', '#c8323a'], 1.5);
+    dot(g, Math.cos(m.face) * r * 0.15, Math.sin(m.face) * r * 0.15, r * 0.18, '#fff0c0', 1);
+  },
+};
+MOB_ART.magmiteS = MOB_ART.magmite;
+
+// ------------------------------------------------------------------ guardians
+
+// Drawn around the origin (the caller translates to the boss); look is the angle towards the player.
+const BOSS_ART = {
+  forest(g, b, t, look) {
+    const r = b.r, p2 = b.phase >= 2, open = 0.5 + 0.5 * Math.sin(t * (p2 ? 3 : 1.6));
+    g.lineCap = 'round';
+    for (let pass = 0; pass < 2; pass++) {
+      g.strokeStyle = pass ? '#2c7a48' : LEAD;
+      g.lineWidth = pass ? 5 : 9;
+      g.beginPath();
+      for (let i = 0; i < 8; i++) {
+        const a = i * (TAU / 8) + 0.2, w = Math.sin(t * 2 + i) * 0.25;
+        g.moveTo(Math.cos(a) * r * 0.7, Math.sin(a) * r * 0.7);
+        g.quadraticCurveTo(Math.cos(a + w) * r * 1.4, Math.sin(a + w) * r * 1.4, Math.cos(a - w) * r * 2, Math.sin(a - w) * r * 2);
+      }
+      g.stroke();
+    }
+    g.lineCap = 'butt';
+    const pc = p2 ? ['#ff4a8a', '#c8205a'] : ['#ff6ad5', '#c94aa8'];
+    for (let i = 0; i < 10; i++) {
+      const a = b.ang + i * (TAU / 10);
+      kite(g, Math.cos(a) * r * 0.5, Math.sin(a) * r * 0.5, a, r * (0.75 + open * 0.25), r * 0.26, pc[0], pc[1], 2, 0.45);
+    }
+    fan(g, 0, 0, 10, r * 0.82, -b.ang * 0.5, ['#3f9c58', '#58c063', '#2c7a48']);
+    fan(g, 0, 0, 8, r * 0.44, b.ang, ['#ffd0f0', '#ff9ae0']);
+    dot(g, 0, 0, r * 0.2, '#fff8e0', 2);
+    dot(g, Math.cos(look) * r * 0.08, Math.sin(look) * r * 0.08, r * 0.1, LEAD, 0);
+  },
+  desert(g, b) {
+    const r = b.r;
+    for (let i = b.segs.length - 1; i >= 0; i--) {
+      const s = b.segs[i], prev = i ? b.segs[i - 1] : b, a = Math.atan2(prev.y - s.y, prev.x - s.x);
+      const x = s.x - b.x, y = s.y - b.y;
+      fan(g, x, y, 6, s.r, a, ['#6a48b0', '#4f3390', '#8a66d0']);
+      diamond(g, x, y, a, s.r * 0.55, s.r * 0.28, '#ffd27a', '#e0a03c', 1.5);
+    }
+    g.rotate(b.face);
+    poly(g, [r * 0.45, -r * 0.55, r * 1.55, -r * 0.42, r * 0.95, -r * 0.05], '#fff0c0');
+    poly(g, [r * 0.45, r * 0.55, r * 1.55, r * 0.42, r * 0.95, r * 0.05], '#fff0c0');
+    fan(g, 0, 0, 8, (i) => r * (i % 2 ? 0.95 : 1.08), 0, ['#8a66d0', '#6a48b0', '#4f3390', '#a888e8']);
+    diamond(g, -r * 0.1, 0, 0, r * 0.6, r * 0.3, '#ffd27a', '#e0a03c');
+    dot(g, r * 0.55, -r * 0.35, 3.5, '#ff3a3a', 1.2);
+    dot(g, r * 0.55, r * 0.35, 3.5, '#ff3a3a', 1.2);
+  },
+  tundra(g, b, t) {
+    const r = b.r, stomp = b.state === 'stomp' ? 1 - b.st / 0.8 : 0, sw = Math.sin(t * 2.2) * r * 0.06;
+    g.rotate(b.face);
+    for (const s of [-1, 1]) {
+      for (let i = -1; i <= 1; i++) {
+        kite(g, -r * 0.1 + i * r * 0.28, s * r * 0.8, s * (Math.PI / 2) + i * 0.35, r * (0.75 - Math.abs(i) * 0.15), r * 0.16, '#eaffff', '#9fd8f0', 1.5);
+      }
+      fan(g, r * (0.72 + stomp * 0.3) + s * sw, s * r * 0.82, 6, r * (0.4 + stomp * 0.14), 0.3, ['#2a4888', '#1f3870', '#3a5fa8']);
+    }
+    fan(g, 0, 0, 10, (i) => r * (i % 2 ? 0.96 : 1.04), 0.16, ['#3a5fa8', '#2a4888', '#5a80c8', '#1f3870']);
+    diamond(g, -r * 0.2, 0, 0, r * 0.42, r * 0.3, '#ffffff', '#6ff0ff');
+    fan(g, r * 0.42, 0, 6, r * 0.36, 0, ['#1f3870', '#16285a']);
+    dot(g, r * 0.6, -r * 0.13, 3, '#6ff0ff', 0);
+    dot(g, r * 0.6, r * 0.13, 3, '#6ff0ff', 0);
+  },
+  volcano(g, b, t) {
+    const r = b.r, beat = 1 + Math.sin(t * (3 + b.phase * 1.5)) * 0.05;
+    for (let i = 0; i < 12; i++) {
+      const a = b.ang + i * (TAU / 12);
+      diamond(g, Math.cos(a) * r * 1.5, Math.sin(a) * r * 1.5, a + Math.PI / 2, r * 0.3, r * 0.14, '#5a2a30', '#3a2028', 1.5);
+    }
+    for (let i = 0; i < 8; i++) {
+      const a = -b.ang * 1.4 + i * (TAU / 8);
+      diamond(g, Math.cos(a) * r * 1.12, Math.sin(a) * r * 1.12, a, r * 0.26, r * 0.14, '#a83a28', '#7a2a24', 1.5);
+    }
+    fan(g, 0, 0, 9, (i) => r * beat * (i % 2 ? 0.7 : 0.84), t * 0.2, ['#ff5a2a', '#ff8a3a', '#e03a1a']);
+    fan(g, 0, 0, 6, r * 0.36 * beat, -t * 0.4, ['#fff0a0', '#ffd24a'], 1.5);
+  },
+};
+
+// Attack telegraphs and beams, drawn in world space above the night shading.
+function drawBossFx(g, b) {
+  if (b.id === 'volcano' && (b.state === 'lcharge' || b.state === 'laser')) {
+    const firing = b.state === 'laser';
+    g.lineCap = 'round';
+    for (let i = 0; i < b.nl; i++) {
+      const a = b.la + (i / b.nl) * TAU, cx = Math.cos(a), cy = Math.sin(a);
+      g.beginPath();
+      g.moveTo(b.x + cx * b.r, b.y + cy * b.r);
+      g.lineTo(b.x + cx * LASER_LEN, b.y + cy * LASER_LEN);
+      if (firing) {
+        g.lineWidth = LASER_W * 2.6; g.strokeStyle = rgba('#ff5a2a', 0.5); g.stroke();
+        g.lineWidth = LASER_W * 1.3; g.strokeStyle = '#ffd24a'; g.stroke();
+        g.lineWidth = 4; g.strokeStyle = '#ffffff'; g.stroke();
+      } else {
+        g.lineWidth = 3; g.strokeStyle = rgba('#ffd24a', 0.35 + 0.35 * Math.sin(b.t * 30)); g.stroke();
+      }
+    }
+    g.lineCap = 'butt';
+  } else if (b.id === 'desert' && b.state === 'aim') {
+    const cx = Math.cos(b.ca), cy = Math.sin(b.ca), w = b.r, len = 660;
+    g.beginPath();
+    g.moveTo(b.x - cy * w, b.y + cx * w);
+    g.lineTo(b.x + cx * len, b.y + cy * len);
+    g.lineTo(b.x + cy * w, b.y - cx * w);
+    g.closePath();
+    g.fillStyle = rgba('#ff3a3a', 0.16 + 0.14 * Math.sin(b.t * 24));
+    g.fill();
+  }
+}
+
+return { LEAD, rgba, shade, poly, dot, gem, fan, kite, diamond, glowSprite, setSpriteRes, drawSprite, nodeSprite, stumpSprite, cropSprite, iconSprite, altarSprite, beaconSprite, drawPlayer, MOB_ART, BOSS_ART, drawBossFx };
+})();
+__modules['render'] = (() => {
+// Canvas renderer: cached terrain mosaics, sprites, particles and night lighting.
+const { TILE, CHUNK_TILES, CHUNK, HOME_RADIUS, ARENA_RADIUS, RECALL_TIME, WEAPONS, ITEMS, BOSSES, CROPS } = __modules['config'];
+const { TAU, clamp, lerp, hash01, hash2, fbm } = __modules['util'];
+const S = __modules['sprites'];
+
+const LEAD = S.LEAD;
+const PAD = 16; // jittered tiles overhang their chunk by a few units
+const VIEW_H = 680; // world units visible vertically
+const VIEW_W = 1260; // ...but never more than this horizontally, so nothing spawns in sight
+const ART_SCALE = 1.18; // creatures are drawn a little larger than their hit circles
+const FONT = '"Trebuchet MS", "Segoe UI", system-ui, sans-serif';
+
+// Glass palettes per biome: hue, saturation and lightness ranges plus rare accent pieces [chance, h, s, l].
+const PAL = [
+  { h: [104, 126], s: [48, 58], l: [41, 48], acc: [[0.022, 58, 78, 58], [0.012, 330, 62, 68]] },
+  { h: [152, 170], s: [42, 54], l: [24, 31], acc: [[0.025, 75, 60, 42]] },
+  { h: [32, 43], s: [64, 76], l: [55, 63], acc: [[0.025, 16, 68, 55]] },
+  { h: [194, 212], s: [38, 54], l: [70, 79], acc: [[0.03, 262, 50, 80]] },
+  { h: [352, 368], s: [42, 56], l: [16, 23], acc: [[0.035, 24, 92, 48]] },
+];
+const WATER = { h: [206, 226], s: [70, 84], l: [38, 50] };
+const ICE_WATER = { h: [196, 212], s: [58, 74], l: [50, 60] };
+const LAVA = { h: [14, 34], s: [94, 100], l: [48, 58] };
+
+// Half length and half width of each weapon's projectile shard, by weapon index.
+const SHOT = [[9, 3.2], [6.5, 3], [8, 1.8], [17, 4.2], [8, 6.5], [6, 3.8]];
+
+function facet(seed, tx, ty, k, biome, liquid) {
+  const a = tx * 2 + k;
+  const pal = liquid ? (biome === 4 ? LAVA : biome === 3 ? ICE_WATER : WATER) : PAL[biome];
+  if (!liquid) {
+    let q = hash01(a, ty, seed + 63);
+    for (const [p, h, s, l] of pal.acc) { if (q < p) return [h, s, l]; q -= p; }
+  }
+  // a slow field adds lighter and darker patches so large areas do not look uniform
+  const field = (fbm(tx * 0.09, ty * 0.09, seed + 64, 2) - 0.5) * 10;
+  return [
+    lerp(pal.h[0], pal.h[1], hash01(a, ty, seed + 61)),
+    lerp(pal.s[0], pal.s[1], hash01(a, ty, seed + 62)),
+    lerp(pal.l[0], pal.l[1], hash01(a, ty, seed + 65)) + field,
+  ];
+}
+
+// Coloured line with a lead outline; pts holds segment pairs.
+function strokes(g, pts, color, lw) {
+  for (let pass = 0; pass < 2; pass++) {
+    g.strokeStyle = pass ? color : LEAD;
+    g.lineWidth = pass ? lw : lw + 2;
+    g.beginPath();
+    for (let i = 0; i < pts.length; i += 4) { g.moveTo(pts[i], pts[i + 1]); g.lineTo(pts[i + 2], pts[i + 3]); }
+    g.stroke();
+  }
+}
+
+function hpBar(g, x, y, w, frac, color) {
+  g.fillStyle = LEAD;
+  g.fillRect(x - w / 2 - 1.5, y - 1.5, w + 3, 7);
+  g.fillStyle = '#3a1826';
+  g.fillRect(x - w / 2, y, w, 4);
+  g.fillStyle = color;
+  g.fillRect(x - w / 2, y, w * clamp(frac, 0, 1), 4);
+}
+
+// Full-screen radial tint: clear up to radius r0 (of 128), reaching the outer colour at r1.
+function radialOverlay(inner, outer, r0, r1) {
+  const c = document.createElement('canvas');
+  c.width = c.height = 256;
+  const g = c.getContext('2d'), gr = g.createRadialGradient(128, 128, r0, 128, 128, r1);
+  gr.addColorStop(0, inner);
+  gr.addColorStop(1, outer);
+  g.fillStyle = gr;
+  g.fillRect(0, 0, 256, 256);
+  return c;
+}
+
+class Renderer {
+  constructor(canvas) {
+    this.canvas = canvas;
+    this.ctx = canvas.getContext('2d', { alpha: false });
+    this.cam = { x: 0, y: 0 };
+    this.shake = 0;
+    this.clock = 0;
+    this.frame = 0;
+    this.snap = true;
+    this.parts = [];
+    this.chunks = new Map(); // chunk key -> cached mosaic
+    this.visible = [];
+    this.lights = []; // flat [x, y, r, color, alpha] records for the night light map
+    this.glows = []; // same layout, drawn additively above the shading
+    this.world = null;
+    this.res = 0;
+    this.lightCanvas = document.createElement('canvas');
+    this.lctx = this.lightCanvas.getContext('2d');
+    this.vignette = radialOverlay('rgba(6,4,14,0)', 'rgba(6,4,14,0.5)', 92, 186);
+    this.hurt = radialOverlay('rgba(255,40,70,0)', 'rgba(255,40,70,0.6)', 116, 186);
+    this.resize();
+  }
+
+  resize() {
+    const dpr = Math.min(window.devicePixelRatio || 1, 2);
+    const w = Math.max(320, window.innerWidth), h = Math.max(240, window.innerHeight);
+    this.cssW = w; this.cssH = h; this.dpr = dpr;
+    this.canvas.width = Math.round(w * dpr);
+    this.canvas.height = Math.round(h * dpr);
+    this.scale = Math.max(this.canvas.height / VIEW_H, this.canvas.width / VIEW_W);
+    this.viewW = this.canvas.width / this.scale;
+    this.viewH = this.canvas.height / this.scale;
+    // Cached art is rasterised close to the on-screen scale so the lead lines stay crisp.
+    const res = clamp(Math.ceil(this.scale * 4) / 4, 1, 2);
+    if (res !== this.res) { this.res = res; this.chunks.clear(); S.setSpriteRes(res); }
+    this.lightCanvas.width = Math.ceil(this.canvas.width / 4);
+    this.lightCanvas.height = Math.ceil(this.canvas.height / 4);
+  }
+
+  reset() {
+    this.chunks.clear();
+    this.parts.length = 0;
+    this.shake = 0;
+    this.snap = true;
+  }
+
+  // Client (CSS pixel) coordinates to world coordinates.
+  screenToWorld(mx, my) {
+    return {
+      x: this.cam.x + (mx * this.dpr - this.canvas.width / 2) / this.scale,
+      y: this.cam.y + (my * this.dpr - this.canvas.height / 2) / this.scale,
+    };
+  }
+
+  // ------------------------------------------------------------------ terrain
+
+  buildChunk(world, chunk) {
+    const res = this.res, n = CHUNK_TILES, m = n + 1, seed = world.seed;
+    const cv = document.createElement('canvas');
+    cv.width = cv.height = Math.ceil((CHUNK + PAD * 2) * res);
+    const g = cv.getContext('2d');
+    g.setTransform(res, 0, 0, res, (PAD - chunk.cx * CHUNK) * res, (PAD - chunk.cy * CHUNK) * res);
+    g.lineJoin = 'round';
+    const xs = new Float64Array(m * m), ys = new Float64Array(m * m);
+    for (let j = 0; j < m; j++) {
+      for (let i = 0; i < m; i++) {
+        xs[j * m + i] = world.cornerX(chunk.cx * n + i, chunk.cy * n + j);
+        ys[j * m + i] = world.cornerY(chunk.cx * n + i, chunk.cy * n + j);
+      }
+    }
+    const lead = new Path2D(), quads = [], phase = [], lava = [];
+    for (let j = 0; j < n; j++) {
+      for (let i = 0; i < n; i++) {
+        const idx = j * n + i, tx = chunk.cx * n + i, ty = chunk.cy * n + j;
+        const biome = chunk.tiles[idx], liquid = chunk.liquid[idx] === 1;
+        const a = j * m + i, b = a + 1, d = a + m, c = d + 1; // corners: a b over d c
+        const tris = hash2(tx, ty, seed + 66) & 1 ? [a, b, c, a, c, d] : [a, b, d, b, c, d];
+        for (let k = 0; k < 2; k++) {
+          const p0 = tris[k * 3], p1 = tris[k * 3 + 1], p2 = tris[k * 3 + 2];
+          const [h, s, l] = facet(seed, tx, ty, k, biome, liquid);
+          const gr = g.createLinearGradient(xs[p0], ys[p0], (xs[p1] + xs[p2]) / 2, (ys[p1] + ys[p2]) / 2);
+          gr.addColorStop(0, `hsl(${h},${s}%,${l + 4}%)`);
+          gr.addColorStop(1, `hsl(${h},${s}%,${l - 3}%)`);
+          g.fillStyle = gr;
+          g.beginPath();
+          g.moveTo(xs[p0], ys[p0]); g.lineTo(xs[p1], ys[p1]); g.lineTo(xs[p2], ys[p2]);
+          g.closePath();
+          g.fill();
+          lead.moveTo(xs[p0], ys[p0]); lead.lineTo(xs[p1], ys[p1]); lead.lineTo(xs[p2], ys[p2]);
+          lead.closePath();
+        }
+        if (liquid) {
+          quads.push(xs[a], ys[a], xs[b], ys[b], xs[c], ys[c], xs[d], ys[d]);
+          phase.push(hash01(tx, ty, seed + 67) * TAU);
+          lava.push(biome === 4);
+        }
+      }
+    }
+    g.strokeStyle = 'rgba(13,11,24,0.7)'; // softer than the outlines of things standing on the ground
+    g.lineWidth = 2;
+    g.stroke(lead);
+    this.decals(g, world, chunk);
+    return { canvas: cv, chunk, quads, phase, lava, used: this.frame };
+  }
+
+  // Small details baked into the mosaic: flowers, leaves, dunes, frost and embers.
+  decals(g, world, chunk) {
+    const n = CHUNK_TILES, seed = world.seed;
+    g.lineCap = 'round';
+    for (let j = 0; j < n; j++) {
+      for (let i = 0; i < n; i++) {
+        const idx = j * n + i;
+        if (chunk.liquid[idx]) continue;
+        const tx = chunk.cx * n + i, ty = chunk.cy * n + j, h = hash01(tx, ty, seed + 71);
+        if (h > 0.22) continue;
+        const k = h / 0.22;
+        const x = (tx + 0.25 + hash01(tx, ty, seed + 72) * 0.5) * TILE, y = (ty + 0.25 + hash01(tx, ty, seed + 73) * 0.5) * TILE;
+        switch (chunk.tiles[idx]) {
+          case 0:
+            if (k < 0.45) {
+              const c = k < 0.18 ? '#ffe27a' : k < 0.32 ? '#ffffff' : '#ff9ad0';
+              S.fan(g, x, y, 8, (q) => (q % 2 ? 2.2 : 5.6), k * 30, [c, c], 1);
+              S.dot(g, x, y, 1.5, '#ffb03a', 0);
+            } else strokes(g, [x - 4, y + 3, x - 6, y - 4, x, y + 3, x, y - 6, x + 4, y + 3, x + 6, y - 4], '#9be87a', 2);
+            break;
+          case 1:
+            if (k < 0.3) { S.dot(g, x, y, 3.6, '#c9824a', 1.3); S.dot(g, x - 1, y - 1, 1, '#f4e6c8', 0); }
+            else S.diamond(g, x, y, k * 20, 5.5, 2.6, '#e0a03c', '#b8742a', 1);
+            break;
+          case 2:
+            if (k < 0.7) {
+              g.strokeStyle = 'rgba(255,244,205,0.6)';
+              g.lineWidth = 1.6;
+              g.beginPath();
+              g.moveTo(x - 9, y); g.quadraticCurveTo(x, y - 6, x + 9, y);
+              g.moveTo(x - 5, y + 5); g.quadraticCurveTo(x + 2, y + 1, x + 9, y + 5);
+              g.stroke();
+            } else S.fan(g, x, y, 5, 3.6, k * 9, ['#c9a070', '#a8824f'], 1);
+            break;
+          case 3:
+            if (k < 0.55) S.fan(g, x, y, 8, (q) => (q % 2 ? 1.4 : 5.2), 0, ['#ffffff', '#ffffff'], 0);
+            else {
+              g.strokeStyle = 'rgba(70,120,160,0.55)';
+              g.lineWidth = 1.4;
+              g.beginPath();
+              g.moveTo(x - 8, y - 3); g.lineTo(x - 2, y + 2); g.lineTo(x + 3, y - 2); g.lineTo(x + 9, y + 3);
+              g.stroke();
+            }
+            break;
+          default:
+            if (k < 0.7) strokes(g, [x - 8, y - 3, x - 2, y + 2, x - 2, y + 2, x + 3, y - 2, x + 3, y - 2, x + 9, y + 3], '#ff8a3a', 1.8);
+            else { S.dot(g, x, y, 2, 'rgba(10,8,16,0.55)', 0); S.dot(g, x + 6, y + 3, 1.4, 'rgba(10,8,16,0.55)', 0); }
+        }
+      }
+    }
+    g.lineCap = 'butt';
+  }
+
+  evict() {
+    for (const [key, art] of this.chunks) if (this.frame - art.used > 240) this.chunks.delete(key);
+  }
+
+  // ------------------------------------------------------------------ effects
+
+  burst(x, y, color, n, speed, size, life = 0.6) {
+    for (let i = 0; i < n && this.parts.length < 700; i++) {
+      const a = Math.random() * TAU, s = speed * (0.35 + Math.random() * 0.65), l = life * (0.6 + Math.random() * 0.6);
+      this.parts.push({
+        k: 0, x, y, vx: Math.cos(a) * s, vy: Math.sin(a) * s, life: l, max: l, size: size * (0.6 + Math.random() * 0.7),
+        rot: Math.random() * TAU, vr: (Math.random() - 0.5) * 14, color,
+      });
+    }
+  }
+
+  sparks(x, y, color, n, speed) {
+    for (let i = 0; i < n && this.parts.length < 700; i++) {
+      const a = Math.random() * TAU, s = speed * (0.4 + Math.random() * 0.6), l = 0.18 + Math.random() * 0.2;
+      this.parts.push({ k: 1, x, y, vx: Math.cos(a) * s, vy: Math.sin(a) * s, life: l, max: l, color });
+    }
+  }
+
+  ring(x, y, r, color, life = 0.35) { this.parts.push({ k: 2, x, y, vx: 0, vy: 0, life, max: life, size: r, color }); }
+
+  text(x, y, str, color, size) {
+    if (this.parts.length > 600) return;
+    this.parts.push({ k: 3, x: x + (Math.random() - 0.5) * 14, y, vx: 0, vy: -46, life: 0.7, max: 0.7, size, color, str });
+  }
+
+  flash(x, y, r, color, life = 0.14) { this.parts.push({ k: 4, x, y, vx: 0, vy: 0, life, max: life, size: r, color }); }
+
+  // Turns simulation events into particles and screen shake.
+  onEvent(e) {
+    switch (e.type) {
+      case 'shoot': {
+        const x = e.x + Math.cos(e.a) * 30, y = e.y + Math.sin(e.a) * 30;
+        this.flash(x, y, 22, e.color, 0.07);
+        if (e.weapon === 'prism' || e.weapon === 'comet' || e.weapon === 'fan') this.shake = Math.max(this.shake, 3);
+        break;
+      }
+      case 'hit': this.sparks(e.x, e.y, e.color, 4, 240); break;
+      case 'spark': this.sparks(e.x, e.y, e.color, 3, 160); break;
+      case 'dmg': this.text(e.x, e.y, String(Math.max(1, Math.round(e.n))), '#ffffff', e.n >= 30 ? 19 : 14); break;
+      case 'kill':
+        this.burst(e.x, e.y, e.color, 8 + Math.round(e.r * 0.4), 300, 7 + e.r * 0.25);
+        this.burst(e.x, e.y, '#ffffff', 3, 220, 5);
+        this.ring(e.x, e.y, e.r * 2.6, e.color);
+        this.flash(e.x, e.y, e.r * 3, e.color);
+        this.shake = Math.max(this.shake, e.elite ? 6 : 2.5);
+        break;
+      case 'nodeHit': this.burst(e.x, e.y, e.color, 2, 180, 5, 0.4); break;
+      case 'nodeBreak':
+        this.burst(e.x, e.y, e.color, 10, 260, 8);
+        this.ring(e.x, e.y, e.r * 2.4, e.color);
+        break;
+      case 'boom':
+        this.ring(e.x, e.y, e.r, e.color, 0.4);
+        this.flash(e.x, e.y, e.r * 1.6, e.color, 0.2);
+        this.burst(e.x, e.y, e.color, 12, 380, 8);
+        this.shake = Math.max(this.shake, e.hostile ? 7 : 5);
+        break;
+      case 'hurt':
+        this.shake = Math.max(this.shake, 8);
+        this.burst(e.x, e.y, '#ff5d7a', 6, 260, 6, 0.4);
+        this.text(e.x, e.y - 20, '−' + Math.max(1, Math.round(e.n)), '#ff6a7a', 18);
+        break;
+      case 'pickup':
+        this.sparks(e.x, e.y, ITEMS[e.kind].color, 4, 120);
+        if (e.kind === 'heart') this.text(e.x, e.y - 14, '+18', '#ff8ba0', 14);
+        else if (e.kind !== 'essence') this.text(e.x, e.y - 14, '+' + e.n, ITEMS[e.kind].color, 13);
+        break;
+      case 'dash': this.burst(e.x, e.y, '#6fa0ff', 7, 200, 7, 0.35); break;
+      case 'plant': this.sparks(e.x, e.y, '#9be87a', 8, 150); this.ring(e.x, e.y, 30, '#9be87a'); break;
+      case 'harvest': this.burst(e.x, e.y, CROPS[e.crop].color, 8, 220, 6); this.ring(e.x, e.y, 46, CROPS[e.crop].color); break;
+      case 'eat': this.ring(e.x, e.y, 54, ITEMS[e.kind].color, 0.45); this.sparks(e.x, e.y, ITEMS[e.kind].color, 10, 220); break;
+      case 'upgrade':
+      case 'craft': this.ring(e.x, e.y, 90, '#ffd27a', 0.6); this.sparks(e.x, e.y, '#ffd27a', 16, 300); break;
+      case 'recall': this.ring(e.x, e.y, 120, '#ffe9b0', 0.6); this.burst(e.x, e.y, '#ffe9b0', 14, 300, 7); break;
+      case 'respawn': this.ring(e.x, e.y, 140, '#ffe9b0', 0.7); this.snap = true; break;
+      case 'death': this.burst(e.x, e.y, '#3f7bff', 26, 420, 10, 1); this.burst(e.x, e.y, '#ffd27a', 8, 300, 7, 1); this.shake = 14; break;
+      case 'bossStart': this.ring(e.x, e.y, 320, e.color, 0.9); this.ring(e.x, e.y, 180, '#ffffff', 0.7); this.shake = 12; break;
+      case 'bossPhase': this.ring(e.x, e.y, 260, e.color, 0.7); this.flash(e.x, e.y, 320, e.color, 0.3); this.shake = 10; break;
+      case 'bossDead':
+        this.burst(e.x, e.y, e.color, 60, 620, 13, 1.3);
+        this.burst(e.x, e.y, '#ffffff', 24, 480, 9, 1.1);
+        for (let i = 1; i <= 3; i++) this.ring(e.x, e.y, 150 * i, i === 2 ? '#ffffff' : e.color, 0.4 + i * 0.25);
+        this.flash(e.x, e.y, 520, '#ffffff', 0.4);
+        this.shake = 18;
+        break;
+    }
+  }
+
+  // ------------------------------------------------------------------ frame
+
+  draw(game, dt, opts = {}) {
+    const ctx = this.ctx, cv = this.canvas, p = game.player, world = game.world, cam = this.cam, sc = this.scale;
+    if (world !== this.world) { this.world = world; this.reset(); }
+    this.frame++;
+    this.clock += dt;
+    const t = this.clock, now = game.time;
+
+    if (opts.camera) { cam.x = opts.camera.x; cam.y = opts.camera.y; } else {
+      // look a little ahead towards the cursor
+      const mx = opts.mouse ? (((opts.mouse.x - this.cssW / 2) * this.dpr) / sc) * 0.13 : 0;
+      const my = opts.mouse ? (((opts.mouse.y - this.cssH / 2) * this.dpr) / sc) * 0.13 : 0;
+      const k = this.snap ? 1 : 1 - Math.exp(-dt * 9);
+      cam.x += (p.x + mx - cam.x) * k;
+      cam.y += (p.y + my - cam.y) * k;
+    }
+    this.snap = false;
+    this.shake *= Math.exp(-dt * 9);
+    const sx = (Math.random() - 0.5) * this.shake * 2, sy = (Math.random() - 0.5) * this.shake * 2;
+
+    ctx.setTransform(1, 0, 0, 1, 0, 0);
+    ctx.globalAlpha = 1;
+    ctx.globalCompositeOperation = 'source-over';
+    ctx.fillStyle = LEAD;
+    ctx.fillRect(0, 0, cv.width, cv.height);
+    ctx.setTransform(sc, 0, 0, sc, Math.round(cv.width / 2 - (cam.x + sx) * sc), Math.round(cv.height / 2 - (cam.y + sy) * sc));
+    ctx.lineJoin = 'round';
+
+    const x0 = cam.x - this.viewW / 2 - 10, x1 = cam.x + this.viewW / 2 + 10;
+    const y0 = cam.y - this.viewH / 2 - 10, y1 = cam.y + this.viewH / 2 + 10;
+    const inView = (x, y, r) => x > x0 - r && x < x1 + r && y > y0 - r && y < y1 + r;
+    const lights = this.lights, glows = this.glows, dark = game.darkness;
+    lights.length = 0;
+    glows.length = 0;
+
+    // Terrain mosaics.
+    const arts = this.visible;
+    arts.length = 0;
+    const cx0 = Math.floor((x0 - PAD) / CHUNK), cx1 = Math.floor((x1 + PAD) / CHUNK);
+    const cy0 = Math.floor((y0 - PAD) / CHUNK), cy1 = Math.floor((y1 + PAD) / CHUNK);
+    for (let cy = cy0; cy <= cy1; cy++) {
+      for (let cx = cx0; cx <= cx1; cx++) {
+        const chunk = world.getChunk(cx, cy);
+        let art = this.chunks.get(chunk.key);
+        if (!art) { art = this.buildChunk(world, chunk); this.chunks.set(chunk.key, art); }
+        art.used = this.frame;
+        art.chunk = chunk;
+        arts.push(art);
+        ctx.drawImage(art.canvas, cx * CHUNK - PAD, cy * CHUNK - PAD, CHUNK + PAD * 2, CHUNK + PAD * 2);
+      }
+    }
+    if (this.chunks.size > 70) this.evict();
+
+    // Water glints and lava glow ripple across the liquid panes.
+    ctx.globalCompositeOperation = 'lighter';
+    for (const art of arts) {
+      const q = art.quads;
+      for (let i = 0, k = 0; i < q.length; i += 8, k++) {
+        const wave = 0.5 + 0.5 * Math.sin(t * 1.7 + art.phase[k]);
+        ctx.globalAlpha = art.lava[k] ? 0.1 + 0.2 * wave : 0.04 + 0.1 * wave;
+        ctx.fillStyle = art.lava[k] ? '#ffb45a' : '#bfe6ff';
+        ctx.beginPath();
+        ctx.moveTo(q[i], q[i + 1]); ctx.lineTo(q[i + 2], q[i + 3]); ctx.lineTo(q[i + 4], q[i + 5]); ctx.lineTo(q[i + 6], q[i + 7]);
+        ctx.fill();
+        if (art.lava[k] && dark > 0.02) lights.push((q[i] + q[i + 4]) / 2, (q[i + 1] + q[i + 5]) / 2, 90, '#ff7a2a', 0.55);
+      }
+    }
+    ctx.globalAlpha = 1;
+    ctx.globalCompositeOperation = 'source-over';
+
+    // Landmarks on the ground: the beacon and the guardian altars.
+    if (inView(0, 0, HOME_RADIUS + 20)) {
+      S.drawSprite(ctx, S.beaconSprite(), 0, 0);
+      ctx.setLineDash([14, 18]);
+      ctx.lineDashOffset = -t * 14;
+      ctx.lineWidth = 3;
+      ctx.strokeStyle = 'rgba(255,226,122,0.42)';
+      ctx.beginPath();
+      ctx.arc(0, 0, HOME_RADIUS, 0, TAU);
+      ctx.stroke();
+      ctx.setLineDash([]);
+      lights.push(0, 0, 640, '#ffe9b0', 1);
+      glows.push(0, 0, 80 + Math.sin(t * 2) * 8, '#ffe9b0', 0.5);
+    }
+    for (const l of world.lairs) {
+      if (!inView(l.x, l.y, ARENA_RADIUS + 20)) continue;
+      const def = BOSSES[l.id], active = game.boss && game.boss.lair === l;
+      ctx.setLineDash([22, 16]);
+      ctx.lineDashOffset = t * 10;
+      ctx.lineWidth = active ? 5 : 3;
+      ctx.strokeStyle = S.rgba(def.color, active ? 0.75 : 0.38);
+      ctx.beginPath();
+      ctx.arc(l.x, l.y, ARENA_RADIUS, 0, TAU);
+      ctx.stroke();
+      ctx.setLineDash([]);
+      S.drawSprite(ctx, S.altarSprite(l.id), l.x, l.y);
+      lights.push(l.x, l.y, 320, def.color, 0.85);
+      if (!active) glows.push(l.x, l.y, 62 + Math.sin(t * 3) * 14, def.color, 0.6);
+    }
+
+    // Farm plots.
+    for (const c of game.crops.values()) {
+      if (!inView(c.x, c.y, 32)) continue;
+      const pr = game.cropProgress(c), ripe = pr >= 1, color = CROPS[c.type].color;
+      S.drawSprite(ctx, S.cropSprite(c.type, ripe ? 3 : Math.floor(pr * 3)), c.x, c.y, 0, ripe ? 1 + Math.sin(t * 4 + c.tx) * 0.05 : 1);
+      if (ripe) {
+        glows.push(c.x, c.y, 36, color, 0.45 + 0.2 * Math.sin(t * 4 + c.tx));
+        lights.push(c.x, c.y, 120, color, 0.7);
+      } else {
+        ctx.lineWidth = 2.5;
+        ctx.strokeStyle = 'rgba(255,255,255,0.55)';
+        ctx.beginPath();
+        ctx.arc(c.x, c.y, 23, -Math.PI / 2, -Math.PI / 2 + pr * TAU);
+        ctx.stroke();
+      }
+    }
+    if (game.spot && p.alive) {
+      const s = game.spot;
+      ctx.lineWidth = 2.5;
+      ctx.strokeStyle = s.ok ? 'rgba(160,255,140,0.9)' : 'rgba(255,90,90,0.9)';
+      ctx.setLineDash([6, 5]);
+      ctx.strokeRect(s.x - 20, s.y - 20, 40, 40);
+      ctx.setLineDash([]);
+      if (s.ok) {
+        ctx.globalAlpha = 0.6;
+        S.drawSprite(ctx, S.iconSprite(CROPS[p.seedSel].seed), s.x, s.y, 0, 0.9);
+        ctx.globalAlpha = 1;
+      }
+    }
+
+    // Resource nodes.
+    for (const art of arts) {
+      for (const n of art.chunk.nodes) {
+        if (!inView(n.x, n.y, 44)) continue;
+        if (n.deadUntil > now) { S.drawSprite(ctx, S.stumpSprite(), n.x, n.y, n.rot); continue; }
+        const hit = now - n.hitAt, born = now - n.deadUntil, spr = S.nodeSprite(n);
+        let k = n.sc;
+        ctx.fillStyle = 'rgba(8,6,18,0.26)';
+        ctx.beginPath();
+        ctx.arc(n.x + 4, n.y + 7, n.def.vr * n.sc * 0.92, 0, TAU);
+        ctx.fill();
+        if (hit < 0.16) k *= 1 + (0.16 - hit) * 0.9;
+        if (n.deadUntil > 0 && born < 0.5) k *= 0.3 + 1.4 * born;
+        S.drawSprite(ctx, spr, n.x, n.y, n.rot, k);
+        if (hit < 0.1) {
+          ctx.globalCompositeOperation = 'lighter';
+          ctx.globalAlpha = 0.55;
+          S.drawSprite(ctx, spr, n.x, n.y, n.rot, k);
+          ctx.globalAlpha = 1;
+          ctx.globalCompositeOperation = 'source-over';
+        }
+        if (n.def.glow) {
+          glows.push(n.x, n.y, n.def.vr * 1.5, n.def.glow, 0.28 + 0.1 * Math.sin(t * 2 + n.rot * 5));
+          lights.push(n.x, n.y, 160, n.def.glow, 0.75);
+        }
+      }
+    }
+
+    // Loot.
+    for (const k of game.pickups) {
+      if (!inView(k.x, k.y, 20) || (k.life < 6 && Math.sin(k.life * 14) > 0.3)) continue;
+      const color = ITEMS[k.kind].color;
+      S.drawSprite(ctx, S.iconSprite(k.kind), k.x, k.y, 0, 0.72 + Math.sin(t * 5 + k.x * 0.05) * 0.06 + Math.min(0.2, k.n * 0.012));
+      glows.push(k.x, k.y, 18, color, 0.4);
+      lights.push(k.x, k.y, 60, color, 0.5);
+    }
+
+    // Creatures.
+    for (const m of game.mobs) {
+      if (m.dead || !inView(m.x, m.y, m.r * 2.6)) continue;
+      const def = m.def, k = (m.r / def.r) * ART_SCALE * Math.min(1, 0.4 + m.age * 2.4), fly = def.flying;
+      ctx.fillStyle = 'rgba(8,6,18,0.28)';
+      ctx.beginPath();
+      ctx.ellipse(m.x + 3, m.y + (fly ? 16 : 6), m.r * (fly ? 0.7 : 1), m.r * (fly ? 0.5 : 0.8), 0, 0, TAU);
+      ctx.fill();
+      if (m.elite) {
+        ctx.lineWidth = 2.5;
+        ctx.strokeStyle = 'rgba(255,214,102,0.85)';
+        ctx.beginPath();
+        ctx.arc(m.x, m.y, m.r * 1.35 + Math.sin(t * 6) * 1.5, 0, TAU);
+        ctx.stroke();
+        glows.push(m.x, m.y, m.r * 3, '#ffd666', 0.35);
+      }
+      ctx.save();
+      ctx.translate(m.x, m.y);
+      ctx.scale(k, k);
+      S.MOB_ART[m.type](ctx, m, def.r);
+      ctx.restore();
+      if (m.hitT > 0) glows.push(m.x, m.y, m.r * 1.9, '#ffffff', (m.hitT / 0.12) * 0.8);
+      const warn = m.state === 'aim' || m.state === 'windup' || m.state === 'fuse' || m.state === 'slam' || m.state === 'fire';
+      glows.push(m.x, m.y, m.r * (warn ? 3 : 2.2), warn ? '#ff4a5a' : def.color, warn ? 0.5 : 0.2);
+      lights.push(m.x, m.y, m.r * 5, def.color, 0.45);
+      if (m.hp < m.maxHp) hpBar(ctx, m.x, m.y - m.r - 10, m.r * 1.7, m.hp / m.maxHp, m.elite ? '#ffd666' : '#ff5d7a');
+    }
+
+    // Guardian.
+    const b = game.boss;
+    if (b && !b.hidden) {
+      const intro = b.state === 'intro' ? clamp(1 - b.st / 1.6, 0, 1) : 1;
+      ctx.fillStyle = 'rgba(8,6,18,0.3)';
+      ctx.beginPath();
+      ctx.ellipse(b.x + 4, b.y + 10, b.r * 1.15, b.r * 0.9, 0, 0, TAU);
+      ctx.fill();
+      ctx.save();
+      ctx.translate(b.x, b.y);
+      ctx.scale(0.2 + 0.8 * intro * (2 - intro), 0.2 + 0.8 * intro * (2 - intro));
+      ctx.globalAlpha = Math.min(1, intro * 2.5);
+      S.BOSS_ART[b.id](ctx, b, t, Math.atan2(p.y - b.y, p.x - b.x));
+      ctx.restore();
+      if (b.hitT > 0) glows.push(b.x, b.y, b.r * 1.8, '#ffffff', (b.hitT / 0.1) * 0.6);
+      glows.push(b.x, b.y, b.r * 3.2, b.def.color, 0.28 + 0.1 * Math.sin(t * 4));
+      lights.push(b.x, b.y, 480, b.def.color, 0.95);
+    }
+
+    // Player.
+    if (p.alive) {
+      ctx.fillStyle = 'rgba(8,6,18,0.3)';
+      ctx.beginPath();
+      ctx.ellipse(p.x + 3, p.y + 6, p.r, p.r * 0.8, 0, 0, TAU);
+      ctx.fill();
+      ctx.save();
+      ctx.translate(p.x, p.y);
+      ctx.scale(ART_SCALE, ART_SCALE);
+      if (p.invuln > 0 && p.dashT <= 0 && Math.sin(t * 40) > 0) ctx.globalAlpha = 0.55;
+      S.drawPlayer(ctx, p, t, WEAPONS[p.weapon].color);
+      ctx.restore();
+      if (p.hurtT > 0) glows.push(p.x, p.y, p.r * 2.4, '#ff6a7a', (p.hurtT / 0.3) * 0.8);
+      if (p.buffs.rage > 0) glows.push(p.x, p.y, 44, '#ff6a3a', 0.35);
+      if (p.buffs.frost > 0) glows.push(p.x, p.y, 44, '#c9b5ff', 0.35);
+      if (p.recall > 0) {
+        const k = p.recall / RECALL_TIME;
+        ctx.lineWidth = 3;
+        ctx.strokeStyle = 'rgba(255,233,176,0.9)';
+        ctx.beginPath();
+        ctx.arc(p.x, p.y, 16 + 60 * (1 - k), 0, TAU);
+        ctx.stroke();
+        glows.push(p.x, p.y, 40 + k * 60, '#ffe9b0', 0.3 + k * 0.5);
+      }
+      lights.push(p.x, p.y, 340, '#fff4d6', 1);
+    }
+
+    // Night: multiply the scene by a light map in which every glowing thing punches a hole.
+    if (dark > 0.02) {
+      for (const s of game.bullets) lights.push(s.x, s.y, 80, s.color, 0.7);
+      for (const s of game.ebullets) lights.push(s.x, s.y, 60, s.color, 0.6);
+      for (const h of game.hazards) lights.push(h.x, h.y, h.r * 1.6, h.color, 0.6);
+      for (const q of this.parts) if (q.k === 4) lights.push(q.x, q.y, q.size * 2, q.color, q.life / q.max);
+      const L = this.lctx, lw = this.lightCanvas.width, lh = this.lightCanvas.height, ls = sc / 4;
+      L.globalCompositeOperation = 'source-over';
+      L.globalAlpha = 1;
+      L.fillStyle = `rgb(${Math.round(255 - dark * 197)},${Math.round(255 - dark * 189)},${Math.round(255 - dark * 122)})`;
+      L.fillRect(0, 0, lw, lh);
+      L.globalCompositeOperation = 'lighter';
+      for (let i = 0; i < lights.length; i += 5) {
+        const r = lights[i + 2] * ls;
+        L.globalAlpha = lights[i + 4] * dark;
+        L.drawImage(S.glowSprite(lights[i + 3]), (lights[i] - cam.x - sx) * ls + lw / 2 - r, (lights[i + 1] - cam.y - sy) * ls + lh / 2 - r, r * 2, r * 2);
+      }
+      ctx.save();
+      ctx.setTransform(1, 0, 0, 1, 0, 0);
+      ctx.globalCompositeOperation = 'multiply';
+      ctx.drawImage(this.lightCanvas, 0, 0, cv.width, cv.height);
+      ctx.restore();
+    }
+
+    // Everything that shines is drawn above the shading so it stays readable at night.
+    ctx.globalCompositeOperation = 'lighter';
+    for (let i = 0; i < glows.length; i += 5) {
+      const r = glows[i + 2];
+      ctx.globalAlpha = clamp(glows[i + 4], 0, 1);
+      ctx.drawImage(S.glowSprite(glows[i + 3]), glows[i] - r, glows[i + 1] - r, r * 2, r * 2);
+    }
+    ctx.globalAlpha = 1;
+    ctx.globalCompositeOperation = 'source-over';
+
+    for (const h of game.hazards) {
+      const k = h.delay > 0 ? clamp(h.t / h.delay, 0, 1) : 1;
+      ctx.beginPath();
+      ctx.arc(h.x, h.y, h.r, 0, TAU);
+      ctx.fillStyle = S.rgba(h.color, 0.1 + 0.08 * k);
+      ctx.fill();
+      ctx.lineWidth = 3;
+      ctx.strokeStyle = S.rgba(h.color, 0.9);
+      ctx.setLineDash([10, 8]);
+      ctx.lineDashOffset = -t * 40;
+      ctx.stroke();
+      ctx.setLineDash([]);
+      ctx.beginPath();
+      ctx.arc(h.x, h.y, h.r * k, 0, TAU);
+      ctx.fillStyle = S.rgba(h.color, 0.3);
+      ctx.fill();
+    }
+    if (b) S.drawBossFx(ctx, b);
+    this.drawShots(ctx, game);
+    this.drawParticles(ctx, dt);
+
+    // Screen-space finish: vignette and damage tint.
+    ctx.setTransform(1, 0, 0, 1, 0, 0);
+    ctx.drawImage(this.vignette, 0, 0, cv.width, cv.height);
+    const st = game.st, low = p.alive && p.hp < st.maxHp * 0.3 ? 0.25 + 0.15 * Math.sin(t * 6) : 0;
+    const red = Math.max(low, p.hurtT / 0.3);
+    if (red > 0.01) {
+      ctx.globalAlpha = clamp(red, 0, 1);
+      ctx.drawImage(this.hurt, 0, 0, cv.width, cv.height);
+      ctx.globalAlpha = 1;
+    }
+  }
+
+  drawShots(ctx, game) {
+    const bs = game.bullets, es = game.ebullets;
+    ctx.globalCompositeOperation = 'lighter';
+    for (const s of bs) {
+      const r = s.r * (s.explode ? 4.5 : 3.4);
+      ctx.drawImage(S.glowSprite(s.color), s.x - r, s.y - r, r * 2, r * 2);
+    }
+    for (const s of es) {
+      const r = s.r * 2.8;
+      ctx.drawImage(S.glowSprite(s.color), s.x - r, s.y - r, r * 2, r * 2);
+    }
+    ctx.globalCompositeOperation = 'source-over';
+    ctx.strokeStyle = LEAD;
+    // The player's shots are slim shards with a hot white core.
+    ctx.lineWidth = 2;
+    for (const s of bs) {
+      const sp = Math.hypot(s.vx, s.vy) || 1, cx = s.vx / sp, cy = s.vy / sp, L = SHOT[s.w][0], W = SHOT[s.w][1];
+      ctx.beginPath();
+      ctx.moveTo(s.x + cx * L, s.y + cy * L);
+      ctx.lineTo(s.x - cy * W, s.y + cx * W);
+      ctx.lineTo(s.x - cx * L * 1.5, s.y - cy * L * 1.5);
+      ctx.lineTo(s.x + cy * W, s.y - cx * W);
+      ctx.closePath();
+      ctx.fillStyle = s.color;
+      ctx.fill();
+      ctx.stroke();
+      ctx.beginPath();
+      ctx.moveTo(s.x + cx * L * 0.5, s.y + cy * L * 0.5);
+      ctx.lineTo(s.x - cy * W * 0.4, s.y + cx * W * 0.4);
+      ctx.lineTo(s.x - cx * L * 0.6, s.y - cy * L * 0.6);
+      ctx.lineTo(s.x + cy * W * 0.4, s.y - cx * W * 0.4);
+      ctx.fillStyle = '#ffffff';
+      ctx.fill();
+    }
+    // Hostile shots are spinning thorn stars, clearly different from the player's.
+    ctx.lineWidth = 2;
+    for (const s of es) {
+      const rot = s.age * 5;
+      ctx.beginPath();
+      for (let i = 0; i < 6; i++) {
+        const a = rot + i * (TAU / 6), r = s.r * (i % 2 ? 0.72 : 1.3);
+        ctx.lineTo(s.x + Math.cos(a) * r, s.y + Math.sin(a) * r);
+      }
+      ctx.closePath();
+      ctx.fillStyle = s.color;
+      ctx.fill();
+      ctx.stroke();
+      ctx.beginPath();
+      ctx.arc(s.x, s.y, s.r * 0.36, 0, TAU);
+      ctx.fillStyle = '#ffffff';
+      ctx.fill();
+    }
+  }
+
+  drawParticles(ctx, dt) {
+    const ps = this.parts, fr = Math.exp(-dt * 3.2);
+    ctx.lineWidth = 1;
+    ctx.textAlign = 'center';
+    ctx.textBaseline = 'middle';
+    // Solid kinds first (glass shards and floating numbers); they are also advanced here.
+    for (let i = ps.length - 1; i >= 0; i--) {
+      const q = ps[i];
+      q.life -= dt;
+      if (q.life <= 0) { ps[i] = ps[ps.length - 1]; ps.pop(); continue; }
+      q.x += q.vx * dt; q.y += q.vy * dt;
+      if (q.k === 0) {
+        q.vx *= fr; q.vy *= fr; q.rot += q.vr * dt;
+        const c = Math.cos(q.rot) * q.size, s = Math.sin(q.rot) * q.size;
+        ctx.globalAlpha = Math.min(1, (q.life / q.max) * 1.6);
+        ctx.beginPath();
+        ctx.moveTo(q.x + c, q.y + s);
+        ctx.lineTo(q.x - 0.6 * c - 0.7 * s, q.y - 0.6 * s + 0.7 * c);
+        ctx.lineTo(q.x - 0.6 * c + 0.5 * s, q.y - 0.6 * s - 0.5 * c);
+        ctx.closePath();
+        ctx.fillStyle = q.color;
+        ctx.fill();
+        ctx.strokeStyle = LEAD;
+        ctx.stroke();
+      } else if (q.k === 1) { q.vx *= fr; q.vy *= fr; } else if (q.k === 3) {
+        ctx.globalAlpha = Math.min(1, (q.life / q.max) * 2);
+        ctx.font = `800 ${q.size}px ${FONT}`;
+        ctx.lineWidth = 3;
+        ctx.strokeStyle = LEAD;
+        ctx.strokeText(q.str, q.x, q.y);
+        ctx.fillStyle = q.color;
+        ctx.fillText(q.str, q.x, q.y);
+        ctx.lineWidth = 1;
+      }
+    }
+    // Light kinds: sparks, shock rings and flashes.
+    ctx.globalCompositeOperation = 'lighter';
+    ctx.lineCap = 'round';
+    for (const q of ps) {
+      const a = q.life / q.max;
+      if (q.k === 1) {
+        ctx.globalAlpha = a;
+        ctx.strokeStyle = q.color;
+        ctx.lineWidth = 2.2;
+        ctx.beginPath();
+        ctx.moveTo(q.x, q.y);
+        ctx.lineTo(q.x - q.vx * 0.035, q.y - q.vy * 0.035);
+        ctx.stroke();
+      } else if (q.k === 2) {
+        ctx.globalAlpha = a;
+        ctx.strokeStyle = q.color;
+        ctx.lineWidth = 2 + 6 * a;
+        ctx.beginPath();
+        ctx.arc(q.x, q.y, q.size * (1 - a * a * 0.85), 0, TAU);
+        ctx.stroke();
+      } else if (q.k === 4) {
+        ctx.globalAlpha = a * 0.8;
+        ctx.drawImage(S.glowSprite(q.color), q.x - q.size, q.y - q.size, q.size * 2, q.size * 2);
+      }
+    }
+    ctx.lineCap = 'butt';
+    ctx.globalAlpha = 1;
+    ctx.globalCompositeOperation = 'source-over';
+  }
+}
+
+return { Renderer };
+})();
+__modules['hud'] = (() => {
+// Heads-up display drawn on the game canvas: health, weapons, resources, minimap, prompts and the world map.
+const { WEAPONS, CROPS, BIOMES, BIOME_IDS, BOSSES } = __modules['config'];
+const { TAU, clamp } = __modules['util'];
+const { LEAD, iconSprite, drawSprite } = __modules['sprites'];
+
+const FONT = '"Trebuchet MS", "Segoe UI", system-ui, sans-serif';
+const GLASS = 'rgba(18,15,36,0.84)';
+const CROP_IDS = Object.keys(CROPS);
+const MAP_COL = BIOME_IDS.map((id) => BIOMES[id].map);
+const WATER_COL = [42, 98, 196], ICE_COL = [120, 180, 220], LAVA_COL = [255, 122, 26];
+const TONES = { boss: '#ff6ad5', night: '#8fb4ff', day: '#ffd27a', good: '#b6ff8a' };
+const MINI_RANGE = 2600; // world units from the player to the rim of the minimap
+
+function label(g, str, x, y, size, color = '#ffffff', align = 'left', weight = 700) {
+  g.font = `${weight} ${size}px ${FONT}`;
+  g.textAlign = align;
+  g.textBaseline = 'middle';
+  g.lineJoin = 'round';
+  g.lineWidth = Math.max(3, size * 0.26);
+  g.strokeStyle = LEAD;
+  g.strokeText(str, x, y);
+  g.fillStyle = color;
+  g.fillText(str, x, y);
+}
+
+// Panel with cut corners, like a pane of dark glass.
+function pane(g, x, y, w, h, cut = 9, fill = GLASS, edge = LEAD, lw = 3) {
+  g.beginPath();
+  g.moveTo(x + cut, y); g.lineTo(x + w - cut, y); g.lineTo(x + w, y + cut); g.lineTo(x + w, y + h - cut);
+  g.lineTo(x + w - cut, y + h); g.lineTo(x + cut, y + h); g.lineTo(x, y + h - cut); g.lineTo(x, y + cut);
+  g.closePath();
+  g.fillStyle = fill;
+  g.fill();
+  g.lineWidth = lw;
+  g.strokeStyle = edge;
+  g.stroke();
+}
+
+function keycap(g, key, x, y, on = true) {
+  const w = Math.max(20, 10 + key.length * 8);
+  pane(g, x - w / 2, y - 10, w, 20, 4, on ? '#f1e6c8' : '#6b6578', LEAD, 2);
+  g.font = `800 12px ${FONT}`;
+  g.textAlign = 'center';
+  g.textBaseline = 'middle';
+  g.fillStyle = LEAD;
+  g.fillText(key, x, y + 0.5);
+}
+
+const icon = (g, kind, x, y, size) => drawSprite(g, iconSprite(kind), x, y, 0, size / 30);
+
+function diamondMark(g, x, y, r, color) {
+  g.beginPath();
+  g.moveTo(x, y - r); g.lineTo(x + r * 0.85, y); g.lineTo(x, y + r); g.lineTo(x - r * 0.85, y);
+  g.closePath();
+  g.fillStyle = color;
+  g.fill();
+  g.lineWidth = 2;
+  g.strokeStyle = LEAD;
+  g.stroke();
+}
+
+function arrowMark(g, x, y, a, size, color) {
+  g.save();
+  g.translate(x, y);
+  g.rotate(a);
+  g.beginPath();
+  g.moveTo(size, 0); g.lineTo(-size * 0.7, -size * 0.75); g.lineTo(-size * 0.3, 0); g.lineTo(-size * 0.7, size * 0.75);
+  g.closePath();
+  g.fillStyle = color;
+  g.fill();
+  g.lineWidth = 1.8;
+  g.strokeStyle = LEAD;
+  g.stroke();
+  g.restore();
+}
+
+// Low-resolution biome map sampled straight from the world noise (no chunks are generated).
+class MapTexture {
+  constructor(n) {
+    this.n = n;
+    this.canvas = document.createElement('canvas');
+    this.canvas.width = this.canvas.height = n;
+    this.g = this.canvas.getContext('2d');
+    this.img = this.g.createImageData(n, n);
+    this.world = null;
+    this.cx = 0; this.cy = 0; this.range = 1;
+  }
+
+  render(world, cx, cy, range) {
+    const n = this.n, d = this.img.data, step = (range * 2) / n;
+    for (let j = 0; j < n; j++) {
+      for (let i = 0; i < n; i++) {
+        const x = cx - range + (i + 0.5) * step, y = cy - range + (j + 0.5) * step, b = world.biomeAt(x, y);
+        const col = world.liquidRaw(x, y, b) ? (b === 4 ? LAVA_COL : b === 3 ? ICE_COL : WATER_COL) : MAP_COL[b];
+        const k = (i + j) & 1 ? 1 : 0.92, o = (j * n + i) * 4; // checker shading hints at the mosaic
+        d[o] = col[0] * k; d[o + 1] = col[1] * k; d[o + 2] = col[2] * k; d[o + 3] = 255;
+      }
+    }
+    this.g.putImageData(this.img, 0, 0);
+    this.world = world; this.cx = cx; this.cy = cy; this.range = range;
+  }
+}
+
+class Hud {
+  constructor() {
+    this.mini = new MapTexture(72);
+    this.big = new MapTexture(220);
+  }
+
+  // view: { cssW, cssH, dpr }; ui: { mode, toasts, mouse, hint }
+  draw(g, view, game, ui) {
+    const s = clamp(Math.min(view.cssH / 820, view.cssW / 1250), 0.7, 1.3), W = view.cssW / s, H = view.cssH / s;
+    g.setTransform(view.dpr * s, 0, 0, view.dpr * s, 0, 0);
+    g.globalAlpha = 1;
+    g.globalCompositeOperation = 'source-over';
+    g.lineJoin = 'round';
+    this.health(g, game);
+    this.resources(g, game, H);
+    this.farm(g, game, W, H);
+    this.weapons(g, game, W, H);
+    this.minimap(g, game, W);
+    this.bossBar(g, game, W);
+    this.toasts(g, ui.toasts, W, game.boss ? 90 : 26);
+    this.prompt(g, game, W, H, ui.hint);
+    if (ui.mode === 'map') this.worldMap(g, game, W, H);
+    else if (ui.mode === 'play') this.crosshair(g, game, ui.mouse.x / s, ui.mouse.y / s);
+  }
+
+  health(g, game) {
+    const p = game.player, st = game.st, x = 16, y = 16;
+    pane(g, x, y, 292, 64);
+    icon(g, 'heart', x + 24, y + 22, 26);
+    const bx = x + 46, by = y + 11, bw = 232, bh = 22, f = clamp(p.hp / st.maxHp, 0, 1);
+    g.fillStyle = '#2a1220';
+    g.fillRect(bx, by, bw, bh);
+    const gr = g.createLinearGradient(bx, 0, bx + bw, 0);
+    gr.addColorStop(0, '#ff3d6a');
+    gr.addColorStop(1, '#ff9a5a');
+    g.fillStyle = gr;
+    g.fillRect(bx, by, bw * f, bh);
+    g.fillStyle = 'rgba(255,255,255,0.22)';
+    g.fillRect(bx, by, bw * f, bh * 0.4);
+    // slanted lead lines every 20 health turn the bar into a row of glass pieces
+    g.strokeStyle = LEAD;
+    g.lineWidth = 2;
+    g.beginPath();
+    for (let v = 20; v < st.maxHp; v += 20) {
+      const sx = bx + (v / st.maxHp) * bw;
+      g.moveTo(sx + 4, by); g.lineTo(sx - 4, by + bh);
+    }
+    g.stroke();
+    g.lineWidth = 2.5;
+    g.strokeRect(bx, by, bw, bh);
+    label(g, `${Math.ceil(p.hp)} / ${st.maxHp}`, bx + bw / 2, by + bh / 2 + 0.5, 13, '#ffffff', 'center', 800);
+
+    const df = p.dashCd > 0 ? 1 - p.dashCd / p.dashMax : 1;
+    g.fillStyle = '#16233a';
+    g.fillRect(bx, by + 30, 96, 8);
+    g.fillStyle = df >= 1 ? '#6ff0ff' : '#3a8fb0';
+    g.fillRect(bx, by + 30, 96 * df, 8);
+    g.lineWidth = 2;
+    g.strokeRect(bx, by + 30, 96, 8);
+    label(g, 'рывок', bx + 104, by + 34.5, 10.5, df >= 1 ? '#bff6ff' : '#8a93a8');
+    let ox = bx + 156;
+    if (p.buffs.rage > 0) {
+      icon(g, 'pepper', ox, by + 34, 18);
+      label(g, Math.ceil(p.buffs.rage) + ' с', ox + 12, by + 34.5, 11, '#ffb08a');
+      ox += 46;
+    }
+    if (p.buffs.frost > 0) {
+      icon(g, 'frost', ox, by + 34, 18);
+      label(g, Math.ceil(p.buffs.frost) + ' с', ox + 12, by + 34.5, 11, '#d9ccff');
+    }
+  }
+
+  resources(g, game, H) {
+    const kinds = ['essence', 'wood', 'ore', 'crystal'], x = 16, y = H - 56, cw = 80;
+    pane(g, x, y, cw * 4 + 12, 40);
+    kinds.forEach((k, i) => {
+      icon(g, k, x + 22 + i * cw, y + 20, 22);
+      label(g, String(game.inv[k]), x + 37 + i * cw, y + 21, 14);
+    });
+  }
+
+  // Seeds (F plants, Q switches) on the first row, harvested food with its hotkeys on the second.
+  farm(g, game, W, H) {
+    const p = game.player, inv = game.inv, w = 306, x = W - w - 16, y = H - 96;
+    pane(g, x, y, w, 80);
+    keycap(g, 'F', x + 20, y + 21);
+    label(g, 'сеять', x + 36, y + 21.5, 11.5, '#cfd6e6');
+    let cx = x + 98;
+    for (const id of CROP_IDS) {
+      const c = CROPS[id], n = inv[c.seed];
+      if (p.seedSel === id) pane(g, cx - 15, y + 7, 54, 28, 5, 'rgba(255,210,122,0.2)', '#ffd27a', 2);
+      g.globalAlpha = n > 0 ? 1 : 0.4;
+      icon(g, c.seed, cx, y + 21, 20);
+      label(g, String(n), cx + 13, y + 21.5, 13);
+      g.globalAlpha = 1;
+      cx += 58;
+    }
+    keycap(g, 'Q', x + w - 22, y + 21);
+    cx = x + 20;
+    for (const id of CROP_IDS) {
+      const c = CROPS[id], n = inv[c.item];
+      keycap(g, c.key, cx, y + 58, n > 0);
+      g.globalAlpha = n > 0 ? 1 : 0.4;
+      icon(g, c.item, cx + 28, y + 58, 22);
+      label(g, String(n), cx + 43, y + 58.5, 13);
+      g.globalAlpha = 1;
+      cx += 96;
+    }
+  }
+
+  weapons(g, game, W, H) {
+    const p = game.player, n = WEAPONS.length, sw = 46, gap = 7, x0 = W / 2 - (n * sw + (n - 1) * gap) / 2, y0 = H - 62;
+    for (let i = 0; i < n; i++) {
+      const w = WEAPONS[i], x = x0 + i * (sw + gap), have = !!game.unlocked[w.id], sel = p.weapon === i, y = y0 - (sel ? 5 : 0);
+      pane(g, x, y, sw, sw, 7, sel ? 'rgba(44,38,84,0.96)' : GLASS, sel ? w.color : LEAD, sel ? 3 : 2.5);
+      g.globalAlpha = have ? 1 : 0.25;
+      icon(g, 'weapon:' + w.id, x + sw / 2, y + sw / 2 + 2, 30);
+      g.globalAlpha = 1;
+      label(g, String(i + 1), x + 9, y + 10, 10.5, have ? '#ffffff' : '#7d7890');
+      if (!have && game.canCraft(w.id)) label(g, '!', x + sw - 10, y + 11, 15, '#ffd27a', 'center', 900);
+    }
+    label(g, WEAPONS[p.weapon].name, W / 2, y0 - 20, 12.5, WEAPONS[p.weapon].color, 'center');
+  }
+
+  minimap(g, game, W) {
+    const p = game.player, world = game.world, mini = this.mini, R = 76, cx = W - R - 20, cy = R + 20, k = R / MINI_RANGE;
+    // The terrain never changes, so the texture is only rebuilt once the player has walked far enough.
+    if (mini.world !== world || Math.abs(p.x - mini.cx) > MINI_RANGE * 0.3 || Math.abs(p.y - mini.cy) > MINI_RANGE * 0.3) {
+      mini.render(world, p.x, p.y, MINI_RANGE * 1.4);
+    }
+    g.save();
+    g.beginPath();
+    g.arc(cx, cy, R, 0, TAU);
+    g.clip();
+    g.imageSmoothingEnabled = false;
+    const half = mini.range * k;
+    g.drawImage(mini.canvas, cx + (mini.cx - p.x) * k - half, cy + (mini.cy - p.y) * k - half, half * 2, half * 2);
+    g.imageSmoothingEnabled = true;
+    if (game.darkness > 0.02) {
+      g.fillStyle = `rgba(10,12,40,${game.darkness * 0.45})`;
+      g.fillRect(cx - R, cy - R, R * 2, R * 2);
+    }
+    for (const m of game.mobs) {
+      const dx = (m.x - p.x) * k, dy = (m.y - p.y) * k;
+      if (dx * dx + dy * dy > R * R) continue;
+      g.fillStyle = m.elite ? '#ffd666' : '#ff4a5a';
+      g.fillRect(cx + dx - 1.5, cy + dy - 1.5, 3, 3);
+    }
+    g.restore();
+    g.lineWidth = 4;
+    g.strokeStyle = LEAD;
+    g.beginPath();
+    g.arc(cx, cy, R, 0, TAU);
+    g.stroke();
+    g.lineWidth = 1.5;
+    g.strokeStyle = 'rgba(255,226,160,0.55)';
+    g.beginPath();
+    g.arc(cx, cy, R - 3, 0, TAU);
+    g.stroke();
+    // Landmarks out of range slide to the rim and become arrows.
+    const mark = (wx, wy, color, faded) => {
+      let dx = (wx - p.x) * k, dy = (wy - p.y) * k;
+      const d = Math.hypot(dx, dy);
+      g.globalAlpha = faded ? 0.5 : 1;
+      if (d > R - 9) arrowMark(g, cx + (dx / d) * (R - 2), cy + (dy / d) * (R - 2), Math.atan2(dy, dx), 8, color);
+      else diamondMark(g, cx + dx, cy + dy, 7, color);
+      g.globalAlpha = 1;
+    };
+    mark(0, 0, '#ffe27a', false);
+    for (const l of world.lairs) mark(l.x, l.y, BOSSES[l.id].color, !!game.bossKills[l.id]);
+    arrowMark(g, cx, cy, p.aim, 7, '#ffffff');
+
+    const night = game.darkness > 0.5;
+    label(g, BIOMES[BIOME_IDS[p.biome]].name, cx, cy + R + 17, 13, '#ffffff', 'center');
+    label(g, `День ${game.day} · ${night ? 'ночь' : game.darkness > 0.02 ? 'сумерки' : 'день'}`, cx, cy + R + 34, 11, night ? '#aab6ff' : '#ffe9b0', 'center');
+  }
+
+  bossBar(g, game, W) {
+    const b = game.boss;
+    if (!b) return;
+    const w = Math.min(520, W * 0.44), x = W / 2 - w / 2, y = 20, f = clamp(b.hp / b.maxHp, 0, 1), by = y + 24;
+    pane(g, x - 12, y - 6, w + 24, 58);
+    label(g, `${b.name} — ${b.def.title}${b.lvl ? ` ×${b.lvl + 1}` : ''}`, W / 2, y + 9, 14, b.def.color, 'center', 800);
+    g.fillStyle = '#241426';
+    g.fillRect(x, by, w, 18);
+    g.fillStyle = b.def.color;
+    g.fillRect(x, by, w * f, 18);
+    g.fillStyle = 'rgba(255,255,255,0.25)';
+    g.fillRect(x, by, w * f, 7);
+    g.strokeStyle = LEAD;
+    g.lineWidth = 2;
+    g.beginPath();
+    for (const ph of b.def.phases) { g.moveTo(x + w * ph + 4, by); g.lineTo(x + w * ph - 4, by + 18); }
+    g.stroke();
+    g.lineWidth = 2.5;
+    g.strokeRect(x, by, w, 18);
+  }
+
+  toasts(g, list, W, y) {
+    for (const t of list) {
+      g.globalAlpha = clamp(Math.min(t.age / 0.25, (t.life - t.age) / 0.5), 0, 1);
+      g.font = `700 14px ${FONT}`;
+      const w = g.measureText(t.text).width + 36;
+      pane(g, W / 2 - w / 2, y, w, 30, 8, GLASS, TONES[t.tone] || LEAD, 2.5);
+      label(g, t.text, W / 2, y + 15.5, 14, '#ffffff', 'center');
+      y += 36;
+    }
+    g.globalAlpha = 1;
+  }
+
+  prompt(g, game, W, H, hint) {
+    const pr = game.prompt, y = H - 118;
+    if (!pr) {
+      if (hint) label(g, hint, W / 2, y, 13, '#f4f0ff', 'center', 600);
+      return;
+    }
+    g.font = `700 14px ${FONT}`;
+    const w = g.measureText(pr.text).width + 62, x = W / 2 - w / 2;
+    pane(g, x, y - 16, w, 32, 8);
+    keycap(g, pr.key, x + 22, y);
+    label(g, pr.text, x + 42, y + 0.5, 14);
+    if (pr.progress !== undefined) {
+      g.fillStyle = '#ffe9b0';
+      g.fillRect(x + 8, y + 11, (w - 16) * clamp(pr.progress, 0, 1), 3);
+    }
+  }
+
+  crosshair(g, game, x, y) {
+    const color = WEAPONS[game.player.weapon].color;
+    g.save();
+    g.translate(x, y);
+    g.rotate(performance.now() / 1300);
+    g.lineWidth = 1.5;
+    g.strokeStyle = LEAD;
+    g.fillStyle = color;
+    for (let i = 0; i < 4; i++) {
+      g.rotate(TAU / 4);
+      g.beginPath();
+      g.moveTo(6, 0); g.lineTo(13, -3.5); g.lineTo(17, 0); g.lineTo(13, 3.5);
+      g.closePath();
+      g.fill();
+      g.stroke();
+    }
+    g.restore();
+    g.beginPath();
+    g.arc(x, y, 2, 0, TAU);
+    g.fillStyle = '#ffffff';
+    g.fill();
+    g.lineWidth = 1.2;
+    g.stroke();
+  }
+
+  worldMap(g, game, W, H) {
+    const p = game.player, world = game.world, big = this.big;
+    // The map always shows every lair; it only grows when the player wanders further out.
+    const range = Math.max(15500, Math.ceil((Math.hypot(p.x, p.y) * 1.15) / 2000) * 2000);
+    if (big.world !== world || big.range !== range) big.render(world, 0, 0, range);
+    g.fillStyle = 'rgba(8,6,18,0.74)';
+    g.fillRect(0, 0, W, H);
+    const size = Math.min(W - 60, H - 150), x = W / 2 - size / 2, y = H / 2 - size / 2 + 8, k = size / (range * 2);
+    pane(g, x - 14, y - 50, size + 28, size + 98, 14);
+    label(g, 'Карта мира', x, y - 26, 20, '#ffe9b0', 'left', 800);
+    label(g, 'M или Esc — закрыть', x + size, y - 26, 12, '#aeb6cc', 'right', 600);
+    g.imageSmoothingEnabled = false;
+    g.drawImage(big.canvas, x, y, size, size);
+    g.imageSmoothingEnabled = true;
+    g.lineWidth = 3;
+    g.strokeStyle = LEAD;
+    g.strokeRect(x, y, size, size);
+    const px = (wx) => x + size / 2 + wx * k, py = (wy) => y + size / 2 + wy * k;
+    diamondMark(g, px(0), py(0), 9, '#ffe27a');
+    label(g, 'Маяк', px(0), py(0) - 17, 12, '#ffe9b0', 'center');
+    for (const l of world.lairs) {
+      const def = BOSSES[l.id], kills = game.bossKills[l.id] || 0;
+      diamondMark(g, px(l.x), py(l.y), 10, def.color);
+      label(g, def.name + (kills ? ' ✓' : ''), px(l.x), py(l.y) - 18, 12.5, kills ? '#b6ff8a' : '#ffffff', 'center');
+      label(g, def.title, px(l.x), py(l.y) + 18, 10, '#d6dcf0', 'center', 600);
+    }
+    arrowMark(g, clamp(px(p.x), x + 8, x + size - 8), clamp(py(p.y), y + 8, y + size - 8), p.aim, 9, '#ffffff');
+    let lx = x;
+    for (let i = 0; i < BIOME_IDS.length; i++) {
+      const c = MAP_COL[i], name = BIOMES[BIOME_IDS[i]].name;
+      g.fillStyle = `rgb(${c[0]},${c[1]},${c[2]})`;
+      g.fillRect(lx, y + size + 18, 13, 13);
+      g.lineWidth = 2;
+      g.strokeRect(lx, y + size + 18, 13, 13);
+      label(g, name, lx + 19, y + size + 25, 12);
+      lx += g.measureText(name).width + 40;
+    }
+  }
+}
+
+return { Hud };
+})();
+__modules['input'] = (() => {
+// Keyboard and mouse state. Keys are tracked by physical position (event.code), so WASD works on any layout.
+
+class Input {
+  constructor(canvas) {
+    this.down = new Set(); // codes currently held
+    this.pressed = new Set(); // codes pressed since the last frame
+    this.mouse = { x: window.innerWidth / 2, y: window.innerHeight / 2, left: false };
+    this.wheel = 0;
+    // 'menu': the browser keeps every key; 'overlay': the game owns Tab; 'play': also Space and the arrows.
+    this.guard = () => 'menu';
+
+    window.addEventListener('keydown', (e) => {
+      if (e.ctrlKey || e.metaKey || e.altKey) return;
+      const owner = this.guard();
+      const owned = e.code === 'Tab' ? owner !== 'menu' : owner === 'play' && (e.code === 'Space' || e.code.startsWith('Arrow'));
+      if (owned) e.preventDefault();
+      if (!e.repeat) this.pressed.add(e.code);
+      this.down.add(e.code);
+    });
+    window.addEventListener('keyup', (e) => this.down.delete(e.code));
+    window.addEventListener('blur', () => this.reset());
+    window.addEventListener('mousemove', (e) => { this.mouse.x = e.clientX; this.mouse.y = e.clientY; });
+    window.addEventListener('mouseup', (e) => { if (e.button === 0) this.mouse.left = false; });
+    canvas.addEventListener('mousedown', (e) => {
+      this.mouse.x = e.clientX; this.mouse.y = e.clientY;
+      if (e.button === 0) this.mouse.left = true;
+      else if (e.button === 2) this.pressed.add('MouseRight');
+    });
+    canvas.addEventListener('contextmenu', (e) => e.preventDefault());
+    canvas.addEventListener('wheel', (e) => { this.wheel += Math.sign(e.deltaY); e.preventDefault(); }, { passive: false });
+  }
+
+  // Forget held keys and buttons, e.g. when a menu opens or the window loses focus.
+  reset() {
+    this.down.clear();
+    this.pressed.clear();
+    this.mouse.left = false;
+    this.wheel = 0;
+  }
+
+  endFrame() {
+    this.pressed.clear();
+    this.wheel = 0;
+  }
+}
+
+return { Input };
+})();
+__modules['audio'] = (() => {
+// Synthesised sound effects (Web Audio): glassy pings, noise bursts and low rumbles, no audio files.
+
+const PENTA = [659, 784, 880, 988, 1175, 1319];
+
+// Minimum seconds between two plays of the same sound.
+const GAP = { hit: 0.05, pickup: 0.045, nodeHit: 0.06, kill: 0.05, mobShot: 0.08, bossShot: 0.12, boom: 0.06, spark: 0.1 };
+
+const SOUNDS = {
+  shard: (s) => s.tone(900, 420, 0.07, 'square', 0.05),
+  fan: (s) => { s.noise(0.09, 0.16, 1800, 0.8); s.tone(320, 160, 0.09, 'square', 0.05); },
+  needle: (s) => s.tone(1400, 900, 0.035, 'triangle', 0.05),
+  prism: (s) => { s.tone(1600, 260, 0.2, 'sawtooth', 0.06); s.tone(2400, 1200, 0.12, 'sine', 0.05); },
+  comet: (s) => { s.tone(220, 70, 0.22, 'sine', 0.16); s.noise(0.12, 0.1, 500, 0.7); },
+  swarm: (s) => s.tone(700, 1150, 0.09, 'sine', 0.06),
+  hit: (s) => s.noise(0.04, 0.07, 3200, 1.5),
+  spark: (s) => s.noise(0.03, 0.03, 5000, 2),
+  nodeHit: (s) => s.noise(0.05, 0.07, 1400, 1.2),
+  nodeBreak: (s) => { s.noise(0.2, 0.14, 2400, 0.7, 'highpass'); s.tone(520, 300, 0.12, 'triangle', 0.06); },
+  kill: (s) => {
+    s.noise(0.18, 0.13, 4200, 0.6, 'highpass');
+    s.tone(1800 + Math.random() * 1400, 1200, 0.13, 'sine', 0.05);
+    s.tone(2600 + Math.random() * 1200, 1900, 0.1, 'sine', 0.035, 0.04);
+  },
+  pickup: (s) => s.tone(PENTA[(Math.random() * PENTA.length) | 0], 0, 0.1, 'sine', 0.05),
+  hurt: (s) => { s.tone(190, 80, 0.2, 'sawtooth', 0.12); s.noise(0.12, 0.1, 700, 0.8); },
+  dash: (s) => s.noise(0.14, 0.09, 1500, 0.6),
+  boom: (s) => { s.tone(130, 38, 0.36, 'sine', 0.22); s.noise(0.3, 0.16, 380, 0.5, 'lowpass'); },
+  plant: (s) => s.tone(330, 520, 0.13, 'sine', 0.07),
+  harvest: (s) => PENTA.slice(0, 3).forEach((f, i) => s.tone(f, 0, 0.12, 'sine', 0.06, i * 0.06)),
+  eat: (s) => { s.tone(520, 0, 0.09, 'triangle', 0.07); s.tone(780, 0, 0.12, 'triangle', 0.07, 0.08); },
+  swap: (s) => s.tone(600, 800, 0.05, 'triangle', 0.04),
+  upgrade: (s) => [523, 659, 784, 1047].forEach((f, i) => s.tone(f, 0, 0.16, 'triangle', 0.07, i * 0.07)),
+  recall: (s) => { s.tone(300, 1200, 0.5, 'sine', 0.08); s.noise(0.4, 0.05, 2600, 0.6); },
+  mobShot: (s) => s.tone(520, 300, 0.08, 'triangle', 0.04),
+  bossShot: (s) => s.tone(300, 170, 0.12, 'triangle', 0.06),
+  bossLaser: (s) => { s.tone(90, 60, 0.9, 'sawtooth', 0.1); s.tone(1800, 600, 0.5, 'sine', 0.03); },
+  bossStart: (s) => { s.tone(70, 45, 1.1, 'sawtooth', 0.16); s.tone(105, 60, 1.1, 'sawtooth', 0.08); s.noise(0.9, 0.08, 300, 0.5, 'lowpass'); },
+  bossPhase: (s) => { s.tone(90, 50, 0.6, 'sawtooth', 0.14); s.noise(0.4, 0.1, 900, 0.5); },
+  bossDead: (s) => {
+    s.noise(0.9, 0.2, 3000, 0.5, 'highpass');
+    s.tone(110, 30, 0.9, 'sine', 0.22);
+    [523, 659, 784, 1047, 1319].forEach((f, i) => s.tone(f, 0, 0.5, 'sine', 0.07, 0.15 + i * 0.09));
+  },
+  death: (s) => [440, 330, 247, 165].forEach((f, i) => s.tone(f, f * 0.8, 0.3, 'triangle', 0.09, i * 0.14)),
+};
+
+// Game event -> sound name (or a function picking one).
+const EVENTS = {
+  shoot: (e) => e.weapon, hit: 'hit', spark: 'spark', nodeHit: 'nodeHit', nodeBreak: 'nodeBreak', kill: 'kill', pickup: 'pickup',
+  hurt: 'hurt', dash: 'dash', boom: 'boom', plant: 'plant', harvest: 'harvest', eat: 'eat', swap: 'swap', upgrade: 'upgrade',
+  craft: 'upgrade', recall: 'recall', respawn: 'recall', mobShot: 'mobShot', bossShot: 'bossShot', bossLaser: 'bossLaser',
+  bossStart: 'bossStart', bossPhase: 'bossPhase', bossDead: 'bossDead', death: 'death',
+};
+
+class Sfx {
+  constructor() {
+    this.ctx = null;
+    this.master = null;
+    this.buffer = null;
+    this.muted = false;
+    this.last = new Map();
+  }
+
+  // Browsers only allow audio after a user gesture, so this is called from the first click.
+  unlock() {
+    try {
+      if (!this.ctx) {
+        const AC = window.AudioContext || window.webkitAudioContext;
+        if (!AC) return;
+        this.ctx = new AC();
+        this.master = this.ctx.createGain();
+        this.master.gain.value = this.muted ? 0 : 0.5;
+        this.master.connect(this.ctx.destination);
+        this.buffer = this.ctx.createBuffer(1, this.ctx.sampleRate, this.ctx.sampleRate);
+        const d = this.buffer.getChannelData(0);
+        for (let i = 0; i < d.length; i++) d[i] = Math.random() * 2 - 1;
+      }
+      if (this.ctx.state === 'suspended') this.ctx.resume();
+    } catch {
+      this.ctx = null; // the game is fully playable without sound
+    }
+  }
+
+  setMuted(muted) {
+    this.muted = muted;
+    if (this.master) this.master.gain.value = muted ? 0 : 0.5;
+  }
+
+  tone(from, to, dur, type, vol, delay = 0) {
+    const c = this.ctx, t = c.currentTime + delay, o = c.createOscillator(), g = c.createGain();
+    o.type = type;
+    o.frequency.setValueAtTime(from, t);
+    if (to) o.frequency.exponentialRampToValueAtTime(Math.max(20, to), t + dur);
+    g.gain.setValueAtTime(vol, t);
+    g.gain.exponentialRampToValueAtTime(0.0001, t + dur);
+    o.connect(g).connect(this.master);
+    o.start(t);
+    o.stop(t + dur + 0.02);
+  }
+
+  noise(dur, vol, freq, q, type = 'bandpass', delay = 0) {
+    const c = this.ctx, t = c.currentTime + delay, src = c.createBufferSource(), f = c.createBiquadFilter(), g = c.createGain();
+    src.buffer = this.buffer;
+    f.type = type;
+    f.frequency.value = freq;
+    f.Q.value = q;
+    g.gain.setValueAtTime(vol, t);
+    g.gain.exponentialRampToValueAtTime(0.0001, t + dur);
+    src.connect(f).connect(g).connect(this.master);
+    src.start(t, Math.random() * 0.5, dur + 0.02);
+  }
+
+  play(name) {
+    const make = SOUNDS[name];
+    if (!make || !this.ctx || this.muted || this.ctx.state !== 'running') return;
+    const now = this.ctx.currentTime;
+    if (now - (this.last.get(name) ?? -1) < (GAP[name] ?? 0.03)) return;
+    this.last.set(name, now);
+    make(this);
+  }
+
+  onEvent(e) {
+    const name = EVENTS[e.type];
+    if (name) this.play(typeof name === 'function' ? name(e) : name);
+  }
+}
+
+return { Sfx };
+})();
+__modules['ui'] = (() => {
+// DOM menus: title, workshop, pause, death and victory screens.
+const { UPGRADES, WEAPONS, BOSSES, ITEMS } = __modules['config'];
+
+const $ = (id) => document.getElementById(id);
+const COST_NAMES = { wood: 'древесины', ore: 'руды', crystal: 'кристаллов' };
+const WALLET = ['essence', 'wood', 'ore', 'crystal'];
+
+class UI {
+  // on: { newGame, continueGame, resume, respawn, toMenu, toggleSound, buyUpgrade(id), craft(id) }
+  constructor(on) {
+    this.panels = ['title', 'craft', 'pause', 'dead', 'win'].map($);
+    $('btn-new').addEventListener('click', on.newGame);
+    $('btn-continue').addEventListener('click', on.continueGame);
+    $('btn-resume').addEventListener('click', on.resume);
+    $('btn-win').addEventListener('click', on.resume);
+    $('craft-close').addEventListener('click', on.resume);
+    $('btn-respawn').addEventListener('click', on.respawn);
+    $('btn-menu').addEventListener('click', on.toMenu);
+    $('btn-sound').addEventListener('click', on.toggleSound);
+    $('craft').addEventListener('click', (e) => {
+      const b = e.target.closest('button[data-upg], button[data-craft]');
+      if (!b || b.disabled) return;
+      if (b.dataset.upg) on.buyUpgrade(b.dataset.upg);
+      else on.craft(b.dataset.craft);
+    });
+  }
+
+  // Shows one panel (or none) and moves keyboard focus to its first usable button.
+  show(id) {
+    for (const p of this.panels) p.hidden = p.id !== id;
+    const first = id && $(id).querySelector('button:not([hidden]):not(:disabled)');
+    if (first) first.focus({ preventScroll: true });
+    else if (document.activeElement instanceof HTMLElement) document.activeElement.blur();
+  }
+
+  setContinue(has) { $('btn-continue').hidden = !has; }
+
+  setSound(on) { $('btn-sound').textContent = `Звук: ${on ? 'вкл' : 'выкл'}`; }
+
+  setDeath(lost) {
+    $('dead-info').textContent = lost > 0
+      ? `Потеряно эссенции: ${lost}. Ресурсы, оружие, улучшения и посевы остались при тебе.`
+      : 'Ресурсы, оружие, улучшения и посевы остались при тебе.';
+  }
+
+  setWin(game) {
+    const ids = Object.keys(BOSSES), beaten = ids.filter((id) => game.bossKills[id]).length;
+    $('win-info').textContent = `Игнис пал, и витраж снова сияет. Хранителей повержено: ${beaten} из ${ids.length}, тварей побеждено: ${game.stats.kills}, `
+      + `урожаев собрано: ${game.stats.harvested}, дней в пути: ${game.day}. Мир бесконечен — Хранителей можно пробуждать вновь, и с каждым разом они сильнее.`;
+  }
+
+  // focus: selector of the button to refocus after a purchase re-rendered the lists
+  renderCraft(game, focus) {
+    $('wallet').innerHTML = WALLET.map((k) => `<span title="${ITEMS[k].name}"><i class="gem ${k}"></i>${game.inv[k]}</span>`).join('');
+    $('upg-list').innerHTML = UPGRADES.map((u) => {
+      const lvl = game.upg[u.id], cost = game.upgradeCost(u.id);
+      const side = lvl >= u.max
+        ? '<span class="owned">максимум</span>'
+        : `<button class="btn small" data-upg="${u.id}" aria-label="${u.name}: улучшить за ${cost} эссенции"${game.inv.essence >= cost ? '' : ' disabled'}>${cost}<i class="gem essence"></i></button>`;
+      return `<li class="row"><div class="info"><b>${u.name}</b><span class="pips">${'◆'.repeat(lvl)}${'◇'.repeat(u.max - lvl)}</span><small>${u.desc}</small></div>${side}</li>`;
+    }).join('');
+    $('weapon-list').innerHTML = WEAPONS.map((w, i) => {
+      let need = '', side = `<span class="owned">в арсенале · клавиша ${i + 1}</span>`;
+      if (!game.unlocked[w.id]) {
+        const parts = Object.entries(w.cost).map(([k, n]) => `<span class="${game.inv[k] >= n ? 'ok' : 'lack'}">${n} ${COST_NAMES[k]}</span>`);
+        if (w.core) parts.push(`<span class="${game.cores[w.core] ? 'ok' : 'lack'}">ядро: ${BOSSES[w.core].name}</span>`);
+        need = `<small>${parts.join(' · ')}</small>`;
+        side = `<button class="btn small" data-craft="${w.id}" aria-label="Создать: ${w.name}"${game.canCraft(w.id) ? '' : ' disabled'}>Создать</button>`;
+      }
+      return `<li class="row"><div class="info"><b style="color:${w.color}">${w.name}</b><small>${w.desc}</small>${need}</div>${side}</li>`;
+    }).join('');
+    $('core-list').innerHTML = Object.entries(BOSSES).map(([id, b]) => {
+      const n = game.bossKills[id] || 0;
+      return `<li class="${n ? 'ok' : ''}"><i class="gem" style="background:${b.color}"></i><b>${b.name}</b> — ${b.title}: ${n ? `повержен ×${n}` : 'не побеждён'}</li>`;
+    }).join('');
+    const again = focus && $('craft').querySelector(focus);
+    if (again && !again.disabled) again.focus({ preventScroll: true });
+    else if (focus) $('craft-close').focus({ preventScroll: true });
+  }
+}
+
+return { UI };
+})();
+__modules['save'] = (() => {
+// Progress lives in localStorage; every access is guarded because storage can be disabled.
+
+const SAVE_KEY = 'kopolo-save-v1';
+const MUTE_KEY = 'kopolo-muted';
+
+function readSave() {
+  try {
+    const s = JSON.parse(localStorage.getItem(SAVE_KEY));
+    return s && s.v === 1 && s.player && s.inv && Array.isArray(s.crops) ? s : null;
+  } catch {
+    return null;
+  }
+}
+
+function writeSave(data) {
+  try {
+    localStorage.setItem(SAVE_KEY, JSON.stringify(data));
+    return true;
+  } catch {
+    return false;
+  }
+}
+
+function clearSave() {
+  try { localStorage.removeItem(SAVE_KEY); } catch { /* nothing to clear */ }
+}
+
+function readMuted() {
+  try { return localStorage.getItem(MUTE_KEY) === '1'; } catch { return false; }
+}
+
+function writeMuted(muted) {
+  try { localStorage.setItem(MUTE_KEY, muted ? '1' : '0'); } catch { /* preference is not kept */ }
+}
+
+return { readSave, writeSave, clearSave, readMuted, writeMuted };
+})();
+__modules['main'] = (() => {
+// Entry point: owns the game loop, the screen state machine and the glue between input, simulation, renderer, HUD, sound and saves.
+const { Game } = __modules['game'];
+const { Renderer } = __modules['render'];
+const { Hud } = __modules['hud'];
+const { Input } = __modules['input'];
+const { Sfx } = __modules['audio'];
+const { UI } = __modules['ui'];
+const { readSave, writeSave, clearSave, readMuted, writeMuted } = __modules['save'];
+const { WEAPONS, CROPS } = __modules['config'];
+
+const TIPS = [
+  'WASD — движение · ЛКМ — огонь · Пробел — рывок сквозь снаряды',
+  'Стреляй по деревьям, камням и кристаллам — из них сыплются ресурсы',
+  'F — посадить семя перед собой · E — собрать созревший урожай',
+  'Z — съесть светоягоду и вылечиться · у Маяка здоровье восстанавливается само',
+  'Tab — мастерская: улучшения за эссенцию и новое оружие',
+  'M — карта с алтарями Хранителей · T (удерживать) — возврат к Маяку',
+];
+const DEMO_SEED = 20241;
+
+const canvas = document.getElementById('game');
+const renderer = new Renderer(canvas);
+const hud = new Hud();
+const input = new Input(canvas);
+const sfx = new Sfx();
+
+let game = new Game({ seed: DEMO_SEED }); // a live world also runs behind the title screen
+let mode = 'title'; // title | play | craft | pause | map | dead | win
+let toasts = [];
+let clock = 0, playT = 0, saveT = 0, deadT = 0, winT = 0, last = performance.now();
+
+function toast(text, tone) {
+  toasts.push({ text, tone, age: 0, life: 4 });
+  if (toasts.length > 4) toasts.shift();
+}
+
+function save() {
+  if (mode !== 'title' && game.player.alive) writeSave(game.serialize());
+}
+
+function setMode(next) {
+  mode = next;
+  input.reset();
+  document.body.classList.toggle('playing', next === 'play');
+  if (next === 'title') ui.setContinue(!!readSave());
+  if (next === 'craft') ui.renderCraft(game);
+  if (next === 'win') ui.setWin(game);
+  ui.show(next === 'play' || next === 'map' || next === 'dead' ? null : next); // the death panel appears after a short beat
+}
+
+function start(next) {
+  game = next;
+  toasts = [];
+  playT = saveT = winT = 0;
+  renderer.reset();
+  sfx.unlock();
+  setMode('play');
+  save();
+}
+
+function setMuted(muted) {
+  sfx.setMuted(muted);
+  writeMuted(muted);
+  ui.setSound(!muted);
+}
+
+// Applies the simulation's events: particles, sound, toasts and screen changes.
+function drain(silent) {
+  for (const e of game.events) {
+    renderer.onEvent(e);
+    if (silent) continue;
+    sfx.onEvent(e);
+    switch (e.type) {
+      case 'toast': toast(e.text, e.tone); break;
+      case 'eat': toast(`${CROPS[e.kind].name}: ${CROPS[e.kind].use}`, 'good'); break;
+      case 'bossStart': toast(`${e.title} пробуждается: ${e.name}!`, 'boss'); break;
+      case 'bossPhase': toast(`${e.name} впадает в ярость`, 'boss'); break;
+      case 'bossDead': {
+        toast(`${e.name} повержен!`, 'good');
+        const w = WEAPONS.find((x) => x.core === e.id);
+        if (e.first && w) toast(`Добыто ядро Хранителя — в мастерской (Tab) теперь можно создать «${w.name}»`, 'good');
+        save();
+        break;
+      }
+      case 'victory': winT = 3; break;
+      case 'death':
+        ui.setDeath(e.lost);
+        deadT = 1.3;
+        setMode('dead');
+        break;
+    }
+  }
+  game.events.length = 0;
+}
+
+const ui = new UI({
+  newGame() {
+    clearSave();
+    start(new Game());
+    toast('Маяк — твой дом: он лечит и отгоняет тварей', 'day');
+  },
+  continueGame() {
+    const data = readSave();
+    let loaded = null;
+    if (data) {
+      try { loaded = new Game({ save: data }); } catch { loaded = null; } // a broken save falls back to a fresh world
+    }
+    start(loaded || new Game());
+  },
+  resume() {
+    if (mode === 'craft' || mode === 'pause' || mode === 'win') setMode('play');
+  },
+  respawn() {
+    if (mode !== 'dead' || deadT > 0) return;
+    game.respawn();
+    setMode('play');
+    save();
+  },
+  toMenu() {
+    save();
+    game = new Game({ seed: DEMO_SEED });
+    toasts = [];
+    setMode('title');
+  },
+  toggleSound() { setMuted(!sfx.muted); },
+  buyUpgrade(id) {
+    game.buyUpgrade(id);
+    drain();
+    ui.renderCraft(game, `[data-upg="${id}"]`);
+  },
+  craft(id) {
+    if (game.craft(id)) toast(`«${WEAPONS[game.player.weapon].name}» в арсенале`, 'good');
+    drain();
+    ui.renderCraft(game, `[data-craft="${id}"]`);
+  },
+});
+
+// Tells the input layer which keys the game currently owns (see Input.guard).
+input.guard = () => (mode === 'title' ? 'menu' : mode === 'play' ? 'play' : 'overlay');
+
+function handleKeys() {
+  const pr = input.pressed;
+  if (pr.has('KeyN') && mode !== 'title') setMuted(!sfx.muted);
+  switch (mode) {
+    case 'play':
+      if (pr.has('Tab') || pr.has('KeyB')) setMode('craft');
+      else if (pr.has('Escape') || pr.has('KeyP')) { save(); setMode('pause'); }
+      else if (pr.has('KeyM')) setMode('map');
+      break;
+    case 'craft':
+      if (pr.has('Tab') || pr.has('KeyB') || pr.has('Escape')) setMode('play');
+      break;
+    case 'pause':
+      if (pr.has('Escape') || pr.has('KeyP')) setMode('play');
+      break;
+    case 'map':
+      if (pr.has('KeyM') || pr.has('Escape') || pr.has('Tab')) setMode('play');
+      break;
+    case 'win':
+      if (pr.has('Escape')) setMode('play');
+      break;
+  }
+}
+
+function feedInput() {
+  const k = input.down, pr = input.pressed, inp = game.input;
+  const aim = renderer.screenToWorld(input.mouse.x, input.mouse.y);
+  inp.mx = (k.has('KeyD') || k.has('ArrowRight') ? 1 : 0) - (k.has('KeyA') || k.has('ArrowLeft') ? 1 : 0);
+  inp.my = (k.has('KeyS') || k.has('ArrowDown') ? 1 : 0) - (k.has('KeyW') || k.has('ArrowUp') ? 1 : 0);
+  inp.aimX = aim.x; inp.aimY = aim.y;
+  inp.fire = input.mouse.left;
+  inp.recall = k.has('KeyT');
+  if (pr.has('Space') || pr.has('ShiftLeft') || pr.has('ShiftRight') || pr.has('MouseRight')) inp.dash = true;
+  if (pr.has('KeyE')) inp.interact = true;
+  if (pr.has('KeyF')) inp.plant = true;
+  if (pr.has('KeyQ')) inp.cycleSeed = true;
+  if (pr.has('KeyZ')) inp.eat = 'berry';
+  else if (pr.has('KeyX')) inp.eat = 'pepper';
+  else if (pr.has('KeyC')) inp.eat = 'frost';
+  for (let i = 0; i < WEAPONS.length; i++) if (pr.has('Digit' + (i + 1))) inp.weapon = i;
+  if (input.wheel) inp.wheel = Math.sign(input.wheel);
+}
+
+function frame(now) {
+  requestAnimationFrame(frame);
+  const dt = Math.min(0.05, Math.max(0, (now - last) / 1000));
+  last = now;
+  clock += dt;
+  handleKeys();
+
+  const running = mode === 'play' || mode === 'dead' || mode === 'title';
+  if (running) {
+    if (mode === 'play') feedInput();
+    else { game.input.mx = game.input.my = 0; game.input.fire = game.input.recall = false; }
+    // two half steps keep fast projectiles honest on slow frames
+    const steps = dt > 1 / 45 ? 2 : 1;
+    for (let i = 0; i < steps; i++) game.update(dt / steps);
+    drain(mode === 'title');
+    for (let i = toasts.length - 1; i >= 0; i--) {
+      toasts[i].age += dt;
+      if (toasts[i].age >= toasts[i].life) toasts.splice(i, 1);
+    }
+  }
+  if (mode === 'play') {
+    playT += dt;
+    saveT += dt;
+    if (saveT > 12) { saveT = 0; save(); }
+    if (winT > 0 && (winT -= dt) <= 0) setMode('win');
+  } else if (mode === 'dead' && deadT > 0 && (deadT -= dt) <= 0) ui.show('dead');
+
+  const camera = mode === 'title' ? { x: Math.cos(clock * 0.07) * 380, y: 40 + Math.sin(clock * 0.09) * 230 } : null;
+  renderer.draw(game, running ? dt : 0, { mouse: mode === 'play' ? input.mouse : null, camera });
+  if (mode !== 'title') {
+    const hint = playT < 72 ? TIPS[Math.floor(playT / 12) % TIPS.length] : null;
+    hud.draw(renderer.ctx, renderer, game, { mode, toasts, mouse: input.mouse, hint });
+  }
+  input.endFrame();
+}
+
+window.addEventListener('resize', () => renderer.resize());
+window.addEventListener('beforeunload', save);
+document.addEventListener('visibilitychange', () => {
+  if (!document.hidden) return;
+  save();
+  if (mode === 'play') setMode('pause');
+});
+
+// Small console handle for debugging and automated checks.
+window.kopolo = { get game() { return game; }, get mode() { return mode; }, renderer };
+
+sfx.setMuted(readMuted());
+ui.setSound(!sfx.muted);
+setMode('title');
+requestAnimationFrame(frame);
+
+return {  };
+})();
+})();
+</script>
+</body>
+</html>
