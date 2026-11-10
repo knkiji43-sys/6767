@@ -1,0 +1,8 @@
+# Where each file came from, one entry per file. The door brought these files in as they
+# were, so each one's origin is unknown until you say: ai (with tool), you, cc0, licensed.
+# - path: index.html         # relative to this game's folder
+#   sha256: <its hash>       # the bytes it came in with
+#   origin: unknown          # ai | bought | cc0 | you | outsourced | template | plugin | licensed | code | unknown
+- path: index.html
+  sha256: 597929b8f4da0c7221857d99863270cf2853b6f81e31153c8e59dd814d7b774f
+  origin: unknown
