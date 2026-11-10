@@ -1,0 +1,7 @@
+#!/bin/sh
+# Chrome refuses to start as root without --no-sandbox, and cloud agent sandboxes
+# run as root. The framework's page-shot.sh does not pass that flag, so point it
+# here instead: PAGE_SHOT_BROWSER="$PWD/tools/chrome-as-root" (see AGENTS.md).
+# For any other user this starts Chrome unchanged.
+if [ "$(id -u)" = 0 ]; then set -- --no-sandbox "$@"; fi
+exec "${CHROME_PATH:-google-chrome}" "$@"
